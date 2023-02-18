@@ -4,8 +4,8 @@ import threading
 import queue
 import soundcard
 import logging
+import itertools
 
-from utils import uuid
 from pathlib import Path
 from typing import Any, List, Optional, Dict, Any
 from dotenv import load_dotenv
@@ -89,17 +89,30 @@ Source = Dict[str, Any]
 class RecorderThread(threading.Thread):
     notebook: "Notebook"
     to_transcribe_queue: queue.Queue
+    type: str
+    origin: str
+    offset: int
 
     _stop: threading.Event
     _loopback: Any
 
-    def __init__(self, notebook: "Notebook", to_transcribe_queue: queue.Queue):
+    def __init__(
+        self,
+        notebook: "Notebook",
+        to_transcribe_queue: queue.Queue,
+        type: str,
+        origin: str,
+        offset: int = 0,
+    ):
         super().__init__()
 
         logging.debug(f"Initializing recorder thread: {notebook=}")
 
         self.notebook = notebook
         self.to_transcribe_queue = to_transcribe_queue
+        self.type = type
+        self.origin = origin
+        self.offset = offset
 
         self._stop = threading.Event()
 
@@ -121,7 +134,7 @@ class RecorderThread(threading.Thread):
         with self._loopback.recorder(
             samplerate=_sound_sample_rate, channels=1
         ) as recorder:
-            while True:
+            for i in itertools.count(self.offset):
                 if self.stopped():
                     logging.debug("Recorder thread stopped")
                     return
@@ -129,23 +142,34 @@ class RecorderThread(threading.Thread):
                 data = recorder.record(
                     numframes=_sound_sample_rate * _sound_sample_length
                 )
-                self.to_transcribe_queue.put(data)
+
+                self.to_transcribe_queue.put({"_index": i, "data": data})
 
 
 # TODO: Consider hosting this in the cloud
 class TranscriberThread(threading.Thread):
     notebook: "Notebook"
     to_transcribe_queue: queue.Queue
+    type: str
+    origin: str
 
     _stop: threading.Event
 
-    def __init__(self, notebook: "Notebook", to_transcribe_queue: queue.Queue):
+    def __init__(
+        self,
+        notebook: "Notebook",
+        to_transcribe_queue: queue.Queue,
+        type: str,
+        origin: str,
+    ):
         super().__init__()
 
         logging.debug(f"Initializing transcriber thread: {notebook=}")
 
         self.notebook = notebook
         self.to_transcribe_queue = to_transcribe_queue
+        self.type = type
+        self.origin = origin
 
         self._stop = threading.Event()
 
@@ -166,7 +190,9 @@ class TranscriberThread(threading.Thread):
                 logging.debug("Transcriber thread stopped")
                 return
 
-            data = self.to_transcribe_queue.get()
+            item = self.to_transcribe_queue.get()
+            _index = item["_index"]
+            data = item["data"]
 
             input_features = _transcriber_processor(
                 audio=data.flatten(),
@@ -183,19 +209,23 @@ class TranscriberThread(threading.Thread):
             doc = Document(
                 page_content=transcription,
                 metadata={
-                    "source": "sound",
+                    "_index": _index,
+                    "type": self.type,
+                    "origin": self.origin,
                 },
             )
 
             logging.debug(f"Transcribed: {doc=}")
 
-            self.notebook._add_docs([doc])
+            ids = self.notebook._add_docs([doc])
+            self.notebook.add_ids_to_live_source(self.origin, ids)
 
 
 class Notebook:
     name: str
     path: Optional[str]
     sources: List[Source]
+    live_sources: List[Source]
     content: Any
 
     _faiss: Optional[FAISS]
@@ -217,6 +247,7 @@ class Notebook:
         self.name = name
         self.path = path
         self.sources = []
+        self.live_sources = []
         self.content = None
 
         self._faiss = None
@@ -343,7 +374,8 @@ class Notebook:
             }
         )
 
-    def start_live_source(self, type: str) -> str:
+    # TODO: Add support for multiple live sources
+    def start_live_source(self, type: str, origin: str) -> str:
         logging.debug(f"Starting live source: {type=}")
 
         if type != "sound":
@@ -356,24 +388,36 @@ class Notebook:
         ):
             raise ValueError("Live source already added.")
 
-        to_transcribe_queue = queue.Queue()
-        transcriber_thread = TranscriberThread(self, to_transcribe_queue)
-        recorder_thread = RecorderThread(self, to_transcribe_queue)
+        if self.has_live_source(origin):
+            offset = len(self.get_live_source(origin).ids)
+        else:
+            offset = 0
 
-        transcriber_thread.start()
-        recorder_thread.start()
+        to_transcribe_queue = queue.Queue()
+        transcriber_thread = TranscriberThread(self, to_transcribe_queue, type, origin)
+        recorder_thread = RecorderThread(
+            self, to_transcribe_queue, type, origin, offset
+        )
 
         self._to_transcribe_queue = to_transcribe_queue
         self._recorder_thread = recorder_thread
         self._transcriber_thread = transcriber_thread
 
-        return uuid()
+        if not self.has_live_source(origin):
+            self.live_sources.append(
+                {
+                    "type": type,
+                    "origin": origin,
+                    "ids": [],
+                }
+            )
 
-    def stop_live_source(self, type: str):
-        logging.debug(f"Stopping live source: {type=}")
+        transcriber_thread.start()
+        recorder_thread.start()
 
-        if type != "sound":
-            raise ValueError(f"Unknown live source type {type}")
+    # TODO: Add support for multiple live sources
+    def stop_live_source(self, origin: str):
+        logging.debug(f"Stopping live source: {origin=}")
 
         if (
             self._recorder_thread is None
@@ -395,14 +439,23 @@ class Notebook:
     def get_source(self, origin: str) -> Source:
         return next(source for source in self.sources if source["origin"] == origin)
 
-    # TODO
-    def get_live_source(self, source_id: str) -> Source:
-        raise NotImplementedError
+    def get_live_source(self, origin: str) -> Source:
+        return next(
+            source for source in self.live_sources if source["origin"] == origin
+        )
+
+    def has_live_source(self, origin: str) -> bool:
+        return any(source["origin"] == origin for source in self.live_sources)
+
+    def add_ids_to_live_source(self, origin: str, ids: List[str]):
+        logging.debug(f"Adding ids to live source: {origin=}, {ids=}")
+
+        source = self.get_live_source(origin)
+        source["ids"].extend(ids)
 
     def get_doc(self, id: str) -> Document:
         return self._faiss.docstore.search(id)
 
-    # TODO: Implement live functionality
     def summary(
         self,
         origin: str,
@@ -410,7 +463,11 @@ class Notebook:
         live=False,
     ) -> str:
         logging.debug(f"Generating summary: {origin=}, {last_k=}")
-        source = self.get_source(origin)
+
+        if live:
+            source = self.get_live_source(origin)
+        else:
+            source = self.get_source(origin)
         ids = sorted(
             source["ids"],
             key=lambda id: self.get_doc(id).metadata["_index"],

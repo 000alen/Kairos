@@ -46,7 +46,6 @@ def save_notebook(notebook_id):
 
         with _jobs_lock:
             # TODO: add error handling
-            # TODO: add output
             _jobs[job_id]["status"] = "finished"
 
     path = request.args.get("path")
@@ -70,7 +69,6 @@ def load_notebook():
 
         with _jobs_lock:
             # TODO: add error handling
-            # TODO: add output
             _jobs[job_id]["status"] = "finished"
 
     path = request.args.get("path")
@@ -90,12 +88,12 @@ def notebook_run(notebook_id):
     def _thread():
         with _notebooks_lock:
             notebook = _notebooks[notebook_id]
-            notebook.run(prompt, content=content)
+            output = notebook.run(prompt, content=content)
 
         with _jobs_lock:
             # TODO: add error handling
-            # TODO: add output
             _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = output
 
     prompt = request.args.get("prompt")
     content = request.get_json()
@@ -115,12 +113,12 @@ def notebook_generate(notebook_id):
     def _thread():
         with _notebooks_lock:
             notebook = _notebooks[notebook_id]
-            notebook.generate(prompt, content=content)
+            output = notebook.generate(prompt, content=content)
 
         with _jobs_lock:
             # TODO: add error handling
-            # TODO: add output
             _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = output
 
     prompt = request.args.get("prompt")
     content = request.get_json()
@@ -140,12 +138,12 @@ def notebook_edit(notebook_id):
     def _thread():
         with _notebooks_lock:
             notebook = _notebooks[notebook_id]
-            notebook.edit(prompt, text, content=content)
+            output = notebook.edit(prompt, text, content=content)
 
         with _jobs_lock:
             # TODO: add error handling
-            # TODO: add output
             _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = output
 
     prompt = request.args.get("prompt")
     text = request.args.get("text")
@@ -166,12 +164,12 @@ def get_ideas(notebook_id):
     def _thread():
         with _notebooks_lock:
             notebook = _notebooks[notebook_id]
-            notebook.get_ideas(content=content)
+            output = notebook.get_ideas(content=content)
 
         with _jobs_lock:
             # TODO: add error handling
-            # TODO: add output
             _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = output
 
     content = request.get_json()
 
@@ -223,12 +221,12 @@ def get_source_summary(notebook_id, source_id):
     def _thread():
         with _notebooks_lock:
             notebook = _notebooks[notebook_id]
-            notebook.summary(source_id, last_k=last_k)
+            output = notebook.summary(source_id, last_k=last_k)
 
         with _jobs_lock:
             # TODO: add error handling
-            # TODO: add output
             _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = output
 
     last_k = request.args.get("last_k")
 
@@ -246,12 +244,13 @@ def get_source_summary(notebook_id, source_id):
 @app.route("/notebook/<notebook_id>/live_sources/start")
 def start_live_source(notebook_id):
     type = request.args.get("type")
+    origin = request.args.get("origin")
 
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
-        source_id = notebook.start_live_source(type)
+        notebook.start_live_source(type, origin)
 
-    return jsonify(source_id)
+    return jsonify(True)
 
 
 # TODO: add error handling
@@ -259,9 +258,9 @@ def start_live_source(notebook_id):
 def get_live_source(notebook_id, source_id):
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
-        source = notebook.get_live_source(source_id)
+        live_source = notebook.get_live_source(source_id)
 
-    return jsonify(source)
+    return jsonify(live_source)
 
 
 @app.route("/notebook/<notebook_id>/live_sources/<source_id>/summary")
@@ -269,10 +268,12 @@ def get_live_source_summary(notebook_id, source_id):
     def _thread():
         with _notebooks_lock:
             notebook = _notebooks[notebook_id]
-            notebook.summary(source_id, last_k=last_k, live=True)
+            output = notebook.summary(source_id, last_k=last_k, live=True)
 
         with _jobs_lock:
+            # TODO: add error handling
             _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = output
 
     last_k = request.args.get("last_k")
 
