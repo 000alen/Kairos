@@ -6,8 +6,9 @@ import soundcard
 import logging
 
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Dict, Any
+from typing import Any, List, Optional, Dict, Any
 from dotenv import load_dotenv
+from names_generator import generate_name
 
 from langchain import LLMMathChain
 from langchain.document_loaders import PagedPDFSplitter, WebBaseLoader, YoutubeLoader
@@ -21,9 +22,9 @@ from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
 load_dotenv()
 
-logging.basicConfig(
-    level=logging.DEBUG,
-)
+# logging.basicConfig(
+#     level=logging.DEBUG,
+# )
 
 
 _AGENT = "zero-shot-react-description"
@@ -58,6 +59,25 @@ _re_combine_whitespace = re.compile(r"\s+")
 _sound_sample_rate = 16000
 
 _sound_sample_length = 15
+
+
+_transcriber_processor = None
+
+_transcriber_model = None
+
+
+def _load_transcriber():
+    logging.debug(
+        f"Initializing transcriber thread: loading model {_TRANSCRIBER_MODEL=}"
+    )
+
+    global _transcriber_processor, _transcriber_model
+
+    _transcriber_processor = WhisperProcessor.from_pretrained(_TRANSCRIBER_MODEL)
+    _transcriber_model = WhisperForConditionalGeneration.from_pretrained(
+        _TRANSCRIBER_MODEL
+    )
+    _transcriber_model.config.forced_decoder_ids = None
 
 
 # type, origin, ids
@@ -117,8 +137,6 @@ class TranscriberThread(threading.Thread):
     to_transcribe_queue: queue.Queue
 
     _stop: threading.Event
-    _processor: WhisperProcessor
-    _model: WhisperForConditionalGeneration
 
     def __init__(self, notebook: "Notebook", to_transcribe_queue: queue.Queue):
         super().__init__()
@@ -130,15 +148,8 @@ class TranscriberThread(threading.Thread):
 
         self._stop = threading.Event()
 
-        logging.debug(
-            f"Initializing transcriber thread: loading model {_TRANSCRIBER_MODEL=}"
-        )
-
-        self._processor = WhisperProcessor.from_pretrained(_TRANSCRIBER_MODEL)
-        self._model = WhisperForConditionalGeneration.from_pretrained(
-            _TRANSCRIBER_MODEL
-        )
-        self._model.config.forced_decoder_ids = None
+        if _transcriber_processor is None or _transcriber_model is None:
+            _load_transcriber()
 
     def stop(self):
         logging.debug("Stopping transcriber thread")
@@ -156,15 +167,15 @@ class TranscriberThread(threading.Thread):
 
             data = self.to_transcribe_queue.get()
 
-            input_features = self._processor(
+            input_features = _transcriber_processor(
                 audio=data.flatten(),
                 sampling_rate=_sound_sample_rate,
                 return_tensors="pt",
             ).input_features
 
-            predicted_ids = self._model.generate(input_features)
+            predicted_ids = _transcriber_model.generate(input_features)
 
-            transcription = self._processor.batch_decode(
+            transcription = _transcriber_processor.batch_decode(
                 predicted_ids, skip_special_tokens=True
             )[0]
 
@@ -184,6 +195,7 @@ class Notebook:
     name: str
     path: Optional[str]
     sources: List[Source]
+    content: Any
 
     _faiss: Optional[FAISS]
     _tools: List[Tool]
@@ -193,12 +205,18 @@ class Notebook:
     _recorder_thread: Optional[RecorderThread]
     _transcriber_thread: Optional[TranscriberThread]
 
-    def __init__(self, name: str, path: Optional[str] = None, verbose: bool = False):
+    def __init__(
+        self, name: str = None, path: Optional[str] = None, verbose: bool = False
+    ):
         logging.debug(f"Initializing notebook: {name=}, {path=}, {verbose=}")
+
+        if name is None:
+            name = generate_name()
 
         self.name = name
         self.path = path
         self.sources = []
+        self.content = None
 
         self._faiss = None
         self._tools = [
@@ -229,6 +247,7 @@ class Notebook:
 
         notebook = cls(name=_json["name"], path=path)
         notebook.sources = _json["sources"]
+        notebook.content = _json["content"]
 
         logging.debug(f"Loading FAISS index: {path=}, {_embeddings=}")
         notebook._faiss = FAISS.load_local(path, _embeddings)
@@ -291,6 +310,7 @@ class Notebook:
             {
                 "name": self.name,
                 "sources": self.sources,
+                "content": self.content,
             },
             open(path / "notebook.json", "w"),
         )
@@ -304,6 +324,10 @@ class Notebook:
         loader = _SOURCE_TYPE_TO_LOADER[type](origin)
         docs = loader.load()
         docs = _splitter.split_documents(docs)
+
+        for i, doc in enumerate(docs):
+            doc.metadata["_index"] = i
+
         ids = self._add_docs(docs)
         self.sources.append(
             {
@@ -360,7 +384,53 @@ class Notebook:
         self._transcriber_thread = None
         self._to_transcribe_queue = None
 
+    def get_source(self, origin: str) -> Source:
+        return next(source for source in self.sources if source["origin"] == origin)
+
+    def get_doc(self, id: str) -> Document:
+        return self._faiss.docstore.search(id)
+
+    def summary(self, origin: str, last_k: Optional[int] = None) -> str:
+        logging.debug(f"Generating summary: {origin=}, {last_k=}")
+        source = self.get_source(origin)
+        ids = sorted(
+            source["ids"],
+            key=lambda id: self.get_doc(id).metadata["_index"],
+        )
+
+        if last_k is not None:
+            ids = ids[-last_k:]
+
+        groups = [ids[i : i + 3] for i in range(0, len(ids), 3)]
+        texts = ["".join(self.get_doc(id).page_content for id in ids) for ids in groups]
+        texts = [_re_combine_whitespace.sub(" ", text).strip() for text in texts]
+        prompts = [
+            f'Summarize the following piece of text:\n\n"""{text}"""\n\nSummary:'
+            for text in texts
+        ]
+        _llm.max_tokens = 256
+        result = _llm.generate(
+            prompts,
+        )
+        _llm.max_tokens = -1
+        summaries = [generation[0].text for generation in result.generations]
+
+        return "\n".join(summaries).strip()
+
+    # TODO: Consider notebook content as a source.
     def run(self, prompt: str) -> str:
         logging.debug(f"Running notebook: {prompt=}")
 
-        return self._agent.run(prompt)
+        return self._agent.run(prompt).strip()
+
+    # TODO: Consider notebook content as a source.
+    def generate(self):
+        raise NotImplementedError
+
+    # TODO: Consider notebook content as a source.
+    def edit(self):
+        raise NotImplementedError
+
+    # TODO: Consider notebook content as a source.
+    def ideas(self):
+        raise NotImplementedError
