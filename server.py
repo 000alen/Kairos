@@ -1,8 +1,10 @@
 import threading
+# import logging
 
 from utils import uuid
 from typing import Dict
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 
 from notebook import Notebook
 
@@ -14,6 +16,7 @@ _jobs: Dict[str, Dict] = {}
 _jobs_lock = threading.Lock()
 
 app = Flask(__name__)
+CORS(app)
 
 
 @app.route("/notebooks/create")

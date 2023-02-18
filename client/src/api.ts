@@ -1,6 +1,6 @@
 import { buildUrl } from "build-url-ts"
 
-const API_URL = 'http://localhost:8080';
+const API_URL = 'http://127.0.0.1:5000';
 
 
 export const createNotebook = async (name: string, path?: string): Promise<string> => {
