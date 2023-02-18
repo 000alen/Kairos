@@ -16,7 +16,7 @@ _jobs_lock = threading.Lock()
 app = Flask(__name__)
 
 
-@app.route("/notebook/create")
+@app.route("/notebooks/create")
 def create_notebook():
     name = request.args.get("name")
     path = request.args.get("path")
@@ -37,7 +37,7 @@ def get_notebook(notebook_id):
     return jsonify(notebook.to_dict())
 
 
-@app.route("/notebook/<notebook_id>/save")
+@app.route("/notebooks/<notebook_id>/save", methods=["POST"])
 def save_notebook(notebook_id):
     def _thread():
         with _notebooks_lock:
@@ -61,7 +61,7 @@ def save_notebook(notebook_id):
     return jsonify(job_id)
 
 
-@app.route("/notebook/load")
+@app.route("/notebooks/load")
 def load_notebook():
     def _thread():
         with _notebooks_lock:
@@ -83,7 +83,7 @@ def load_notebook():
     return jsonify(job_id)
 
 
-@app.route("/notebook/<notebook_id>/run")
+@app.route("/notebooks/<notebook_id>/run")
 def notebook_run(notebook_id):
     def _thread():
         with _notebooks_lock:
@@ -108,7 +108,7 @@ def notebook_run(notebook_id):
     return jsonify(job_id)
 
 
-@app.route("/notebook/<notebook_id>/generate")
+@app.route("/notebooks/<notebook_id>/generate")
 def notebook_generate(notebook_id):
     def _thread():
         with _notebooks_lock:
@@ -133,7 +133,7 @@ def notebook_generate(notebook_id):
     return jsonify(job_id)
 
 
-@app.route("/notebook/<notebook_id>/edit")
+@app.route("/notebooks/<notebook_id>/edit")
 def notebook_edit(notebook_id):
     def _thread():
         with _notebooks_lock:
@@ -159,7 +159,7 @@ def notebook_edit(notebook_id):
     return jsonify(job_id)
 
 
-@app.route("/notebook/<notebook_id>/ideas")
+@app.route("/notebooks/<notebook_id>/ideas")
 def get_ideas(notebook_id):
     def _thread():
         with _notebooks_lock:
@@ -183,7 +183,7 @@ def get_ideas(notebook_id):
     return jsonify(job_id)
 
 
-@app.route("/notebook/<notebook_id>/sources/add")
+@app.route("/notebooks/<notebook_id>/sources/add")
 def add_source(notebook_id):
     def _thread():
         with _notebooks_lock:
@@ -207,7 +207,7 @@ def add_source(notebook_id):
     return jsonify(job_id)
 
 
-@app.route("/notebook/<notebook_id>/sources/<source_id>")
+@app.route("/notebooks/<notebook_id>/sources/<source_id>")
 def get_source(notebook_id, source_id):
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
@@ -216,7 +216,7 @@ def get_source(notebook_id, source_id):
     return jsonify(source)
 
 
-@app.route("/notebook/<notebook_id>/sources/<source_id>/summary")
+@app.route("/notebooks/<notebook_id>/sources/<source_id>/summary")
 def get_source_summary(notebook_id, source_id):
     def _thread():
         with _notebooks_lock:
@@ -241,7 +241,7 @@ def get_source_summary(notebook_id, source_id):
 
 
 # TODO: add error handling
-@app.route("/notebook/<notebook_id>/live_sources/start")
+@app.route("/notebooks/<notebook_id>/live_sources/start")
 def start_live_source(notebook_id):
     type = request.args.get("type")
     origin = request.args.get("origin")
@@ -254,7 +254,7 @@ def start_live_source(notebook_id):
 
 
 # TODO: add error handling
-@app.route("/notebook/<notebook_id>/live_sources/<source_id>")
+@app.route("/notebooks/<notebook_id>/live_sources/<source_id>")
 def get_live_source(notebook_id, source_id):
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
@@ -263,7 +263,7 @@ def get_live_source(notebook_id, source_id):
     return jsonify(live_source)
 
 
-@app.route("/notebook/<notebook_id>/live_sources/<source_id>/summary")
+@app.route("/notebooks/<notebook_id>/live_sources/<source_id>/summary")
 def get_live_source_summary(notebook_id, source_id):
     def _thread():
         with _notebooks_lock:
@@ -288,7 +288,7 @@ def get_live_source_summary(notebook_id, source_id):
 
 
 # TODO: add error handling
-@app.route("/notebook/<notebook_id>/live_sources/<source_id>/stop")
+@app.route("/notebooks/<notebook_id>/live_sources/<source_id>/stop")
 def stop_live_source(notebook_id, source_id):
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
@@ -297,7 +297,7 @@ def stop_live_source(notebook_id, source_id):
     return jsonify(True)
 
 
-@app.route("/notebook/<notebook_id>/documents/<document_id>")
+@app.route("/notebooks/<notebook_id>/documents/<document_id>")
 def get_document(notebook_id, document_id):
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
