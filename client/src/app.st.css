@@ -1,0 +1,18 @@
+@st-import Header from './header.st.css';
+
+.root {}
+
+.header {
+    -st-extends: Header;
+    margin-top: 10em;
+    text-align: center;
+}
+
+.header::title {
+    margin: 0;
+    font-size: 4em;
+}
+
+.header::anchor {
+    text-decoration-color: green;
+}
