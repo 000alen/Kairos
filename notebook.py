@@ -6,7 +6,7 @@ import soundcard
 import logging
 
 from pathlib import Path
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Dict, Any
 from dotenv import load_dotenv
 
 from langchain import LLMMathChain
@@ -60,6 +60,11 @@ _sound_sample_rate = 16000
 _sound_sample_length = 15
 
 
+# type, origin, ids
+Source = Dict[str, Any]
+
+
+# TODO: Add timestamp metadata
 class RecorderThread(threading.Thread):
     notebook: "Notebook"
     to_transcribe_queue: queue.Queue
@@ -106,6 +111,7 @@ class RecorderThread(threading.Thread):
                 self.to_transcribe_queue.put(data)
 
 
+# TODO: Consider hosting this in the cloud
 class TranscriberThread(threading.Thread):
     notebook: "Notebook"
     to_transcribe_queue: queue.Queue
@@ -177,7 +183,7 @@ class TranscriberThread(threading.Thread):
 class Notebook:
     name: str
     path: Optional[str]
-    sources: List[Tuple[str, str]]
+    sources: List[Source]
 
     _faiss: Optional[FAISS]
     _tools: List[Tool]
@@ -192,6 +198,7 @@ class Notebook:
 
         self.name = name
         self.path = path
+        self.sources = []
 
         self._faiss = None
         self._tools = [
@@ -252,17 +259,20 @@ class Notebook:
         texts = [f'"""{text}"""' for text in texts if text]
         return ", ".join(texts)
 
-    def _add_docs(self, docs: List[Document]):
+    def _add_docs(self, docs: List[Document]) -> List[str]:
         logging.debug(f"Adding docs: {docs=}")
 
         if self._faiss is None:
             logging.debug(f"Initializing FAISS index: {_embeddings=}")
             self._faiss = FAISS.from_documents(docs, _embeddings)
+            ids = list(self._faiss.index_to_docstore_id.values())
         else:
             logging.debug(f"Adding docs to FAISS index: {docs=}")
             texts = [doc.page_content for doc in docs]
             metadatas = [doc.metadata for doc in docs]
-            self._faiss.add_texts(texts, metadatas)
+            ids = self._faiss.add_texts(texts, metadatas)
+
+        return ids
 
     def save(self, path: Optional[str] = None):
         logging.debug(f"Saving notebook: {path=}")
@@ -291,11 +301,17 @@ class Notebook:
         if type not in _SOURCE_TYPE_TO_LOADER:
             raise ValueError(f"Unknown source type {type}")
 
-        loader = _SOURCE_TYPE_TO_LOADER[type]
-        docs = loader.load(origin)
+        loader = _SOURCE_TYPE_TO_LOADER[type](origin)
+        docs = loader.load()
         docs = _splitter.split_documents(docs)
-        self._add_docs(docs)
-        self.sources.append((type, origin))
+        ids = self._add_docs(docs)
+        self.sources.append(
+            {
+                "type": type,
+                "origin": origin,
+                "ids": ids,
+            }
+        )
 
     def start_live_source(self, type: str):
         logging.debug(f"Starting live source: {type=}")
@@ -321,7 +337,6 @@ class Notebook:
         self._recorder_thread = recorder_thread
         self._transcriber_thread = transcriber_thread
 
-    # TODO: Properly stop threads
     def stop_live_source(self, type: str):
         logging.debug(f"Stopping live source: {type=}")
 
