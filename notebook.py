@@ -5,6 +5,7 @@ import queue
 import soundcard
 import logging
 
+from utils import uuid
 from pathlib import Path
 from typing import Any, List, Optional, Dict, Any
 from dotenv import load_dotenv
@@ -293,6 +294,15 @@ class Notebook:
 
         return ids
 
+    def to_dict(self) -> Dict:
+        logging.debug("Converting notebook to dict")
+
+        return {
+            "name": self.name,
+            "sources": self.sources,
+            "content": self.content,
+        }
+
     def save(self, path: Optional[str] = None):
         logging.debug(f"Saving notebook: {path=}")
 
@@ -307,11 +317,7 @@ class Notebook:
         self._faiss.save_local(self.path)
 
         json.dump(
-            {
-                "name": self.name,
-                "sources": self.sources,
-                "content": self.content,
-            },
+            self.to_dict(),
             open(path / "notebook.json", "w"),
         )
 
@@ -337,7 +343,7 @@ class Notebook:
             }
         )
 
-    def start_live_source(self, type: str):
+    def start_live_source(self, type: str) -> str:
         logging.debug(f"Starting live source: {type=}")
 
         if type != "sound":
@@ -360,6 +366,8 @@ class Notebook:
         self._to_transcribe_queue = to_transcribe_queue
         self._recorder_thread = recorder_thread
         self._transcriber_thread = transcriber_thread
+
+        return uuid()
 
     def stop_live_source(self, type: str):
         logging.debug(f"Stopping live source: {type=}")
@@ -387,10 +395,20 @@ class Notebook:
     def get_source(self, origin: str) -> Source:
         return next(source for source in self.sources if source["origin"] == origin)
 
+    # TODO
+    def get_live_source(self, source_id: str) -> Source:
+        raise NotImplementedError
+
     def get_doc(self, id: str) -> Document:
         return self._faiss.docstore.search(id)
 
-    def summary(self, origin: str, last_k: Optional[int] = None) -> str:
+    # TODO: Implement live functionality
+    def summary(
+        self,
+        origin: str,
+        last_k: Optional[int] = None,
+        live=False,
+    ) -> str:
         logging.debug(f"Generating summary: {origin=}, {last_k=}")
         source = self.get_source(origin)
         ids = sorted(
