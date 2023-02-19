@@ -2,23 +2,34 @@ import React from 'react'
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { addSource, getIdeas, getNotebook, getSourceSummary, joinJob, notebookEdit, notebookGenerate, notebookRun, saveNotebook, startLiveSource, stopLiveSource } from '../api';
-import type { Notebook as INotebook } from '../typings';
+import { Notebook as INotebook } from '../typings';
 import { Tiptap } from '../components/Tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit'
-// import useCollapse from '../react-collapsed'
+import { MenuProps, FloatButton, Layout, Menu, Drawer, Button } from 'antd';
+import { QuestionCircleOutlined, SyncOutlined } from '@ant-design/icons';
 
-export interface NotebookProps { }
+import "../styles/notebook.css"
 
-export const Notebook: React.FC<NotebookProps> = () => {
+const { Header, Content } = Layout;
+
+const menuItems: MenuProps['items'] = ['1', '2', '3'].map((key) => ({
+  key,
+  label: `nav ${key}`,
+}));
+
+
+export const Notebook = () => {
   const { id } = useParams();
 
   const editor = useEditor({
-    extensions: [StarterKit]
+    extensions: [StarterKit],
+    editorProps: {
+      attributes: {
+        class: 'prose dark:prose-invert prose-sm sm:prose lg:prose-lg xl:prose-2xl m-5 focus:outline-none mx-auto',
+      },
+    },
   })
-
-  // const { getCollapseProps, getToggleProps, isExpanded } = useCollapse()
-
 
   const [ready, setReady] = useState<boolean>(false);
   const [notebook, setNotebook] = useState<INotebook | null>(null);
@@ -121,63 +132,123 @@ export const Notebook: React.FC<NotebookProps> = () => {
     await joinJob(await saveNotebook(id!, content), () => { });
   }, [id, command, editor]);
 
+
+  const [open, setOpen] = useState(false);
+  const [childrenDrawer, setChildrenDrawer] = useState(false);
+
+  const showDrawer = () => {
+    setOpen(true);
+  };
+
+  const onClose = () => {
+    setOpen(false);
+  };
+
+  const showChildrenDrawer = () => {
+    setChildrenDrawer(true);
+  };
+
+  const onChildrenDrawerClose = () => {
+    setChildrenDrawer(false);
+  };
+
   return (
     ready ?
-      <div>
-        <h1>{notebook!.name}</h1>
+      <>
+        <Layout
+          className='h-full'
+        >
+          <Header className="header" style={{ position: 'sticky', top: 0, zIndex: 1, width: '100%' }}>
+            <div className="logo" />
+            <Menu theme="dark" mode="horizontal" defaultSelectedKeys={['2']} items={menuItems} />
+          </Header>
 
-        <div>
-          <h2>Sources</h2>
-          <ul>
-            {notebook!.sources.map((source) => (
-              <li key={source.origin}>
-                <button onClick={() => onSourceSummary(source.id)}>Summary</button>
-                {source.type}: {source.origin}
-              </li>
-            ))}
-          </ul>
-        </div>
+          <Layout style={{ position: "relative", padding: '0 24px 24px' }}>
+            <Content
+              style={{
+                padding: 24,
+                margin: 0,
+                minHeight: 280,
+                overflow: 'auto',
+              }}
+            >
+              <Tiptap editor={editor!} />
+            </Content>
 
-        <div>
-          <h2>Live sources</h2>
-          <ul>
-            {notebook!.live_sources.map((source) => (
-              <li key={source.origin}>
-                <button onClick={() => onLiveSourceSummary(source.id)}>Summary</button>
-                {source.type}: {source.origin}
-              </li>
-            ))}
-          </ul>
-        </div>
+            <FloatButton.Group shape="square" style={{ left: 24 }}>
+              <FloatButton icon={<QuestionCircleOutlined />} />
+              <FloatButton />
+              <FloatButton icon={<SyncOutlined />} onClick={showDrawer} />
+            </FloatButton.Group>
+          </Layout>
+        </Layout>
 
-        <div>
-          <Tiptap editor={editor!} />
-        </div>
+        <Drawer title="Multi-level drawer" width={520} closable={false} onClose={onClose} open={open}>
+          <Button onClick={showChildrenDrawer}>
+            Two-level drawer
+          </Button>
+          <Drawer
+            title="Two-level Drawer"
+            width={320}
+            closable={false}
+            onClose={onChildrenDrawerClose}
+            open={childrenDrawer}
+          >
+            This is two-level drawer
+          </Drawer>
+        </Drawer>
+      </>
+      : null
 
-        <div>
-          <h2>Commands</h2>
-          <input type="text" value={command} onChange={onChangeCommand} placeholder='Command' />
+    // ready ?
+    //   <div>
+    //     <h1>{notebook!.name}</h1>
 
-          <div>
-            <button onClick={onRun}>Run</button>
-            <button onClick={onGenerate}>Generate</button>
-            <button onClick={onEdit}>Edit</button>
-            <button onClick={onIdeas}>Ideas</button>
-            <button onClick={onAddPdf}>Add PDF</button>
-            <button onClick={onAddYoutube}>Add Youtube</button>
-            <button onClick={onAddWeb}>Add Web</button>
-            <button onClick={onStartLiveSource}>Start live source</button>
-            <button onClick={onStopLiveSource}>Stop live source</button>
-            <button onClick={onSave}>Save</button>
-          </div>
-        </div>
+    //     <div>
+    //       <h2>Sources</h2>
+    //       <ul>
+    //         {notebook!.sources.map((source) => (
+    //           <li key={source.origin}>
+    //             <button onClick={() => onSourceSummary(source.id)}>Summary</button>
+    //             {source.type}: {source.origin}
+    //           </li>
+    //         ))}
+    //       </ul>
+    //     </div>
 
-        {/* <div>
-          <button {...getToggleProps()}>
-            {isExpanded ? 'Collapse' : 'Expand'}
-          </button>
-          <section {...getCollapseProps()}>Collapsed content 🙈</section>
-        </div> */}
-      </div> : null
+    //     <div>
+    //       <h2>Live sources</h2>
+    //       <ul>
+    //         {notebook!.live_sources.map((source) => (
+    //           <li key={source.origin}>
+    //             <button onClick={() => onLiveSourceSummary(source.id)}>Summary</button>
+    //             {source.type}: {source.origin}
+    //           </li>
+    //         ))}
+    //       </ul>
+    //     </div>
+
+    //     <div>
+    // <Tiptap editor={editor!} />
+    //     </div>
+
+    //     <div>
+    //       <h2>Commands</h2>
+    //       <input type="text" value={command} onChange={onChangeCommand} placeholder='Command' />
+
+    //       <div>
+    //         <button onClick={onRun}>Run</button>
+    //         <button onClick={onGenerate}>Generate</button>
+    //         <button onClick={onEdit}>Edit</button>
+    //         <button onClick={onIdeas}>Ideas</button>
+    //         <button onClick={onAddPdf}>Add PDF</button>
+    //         <button onClick={onAddYoutube}>Add Youtube</button>
+    //         <button onClick={onAddWeb}>Add Web</button>
+    //         <button onClick={onStartLiveSource}>Start live source</button>
+    //         <button onClick={onStopLiveSource}>Stop live source</button>
+    //         <button onClick={onSave}>Save</button>
+    //       </div>
+    //     </div>
+    //   </div> : null
   )
 }

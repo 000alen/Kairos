@@ -2,6 +2,7 @@ import React from 'react'
 import { useCallback, useState } from 'react'
 import { createNotebook, joinJob, loadNotebook, openFile } from '../api';
 import { useNavigate } from 'react-router-dom';
+import { Button } from 'antd';
 
 export const Index = () => {
     const navigate = useNavigate();
@@ -43,12 +44,13 @@ export const Index = () => {
 
             <div>
                 <input type="text" value={name} onChange={onChangeName} placeholder='Notebook name' />
-                <button onClick={onNewNotebook}>New notebook</button>
-
+                {/* <button onClick={onNewNotebook}>New notebook</button> */}
+                <Button onClick={onNewNotebook}>New notebook</Button>
             </div>
 
             <div>
-                <button onClick={onLoadNotebook}>Load notebook</button>
+                {/* <button onClick={onLoadNotebook}>Load notebook</button> */}
+                <Button onClick={onLoadNotebook}>Load notebook</Button>
             </div>
         </main>
     )
