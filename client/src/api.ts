@@ -105,7 +105,7 @@ export const loadNotebook = async (path?: string) => {
     return jobId;
 }
 
-export const notebookRun = async (notebookId: string, content: object, prompt: string) => {
+export const notebookRun = async (notebookId: string, content: string, prompt: string) => {
     const url = buildUrl(API_URL, {
         path: `notebooks/${notebookId}/run`,
         queryParams: {
@@ -125,7 +125,7 @@ export const notebookRun = async (notebookId: string, content: object, prompt: s
     return jobId;
 }
 
-export const notebookGenerate = async (notebookId: string, content: object, prompt: string) => {
+export const notebookGenerate = async (notebookId: string, content: string, prompt: string) => {
     const url = buildUrl(API_URL, {
         path: `notebooks/${notebookId}/generate`,
         queryParams: {
@@ -145,7 +145,7 @@ export const notebookGenerate = async (notebookId: string, content: object, prom
     return jobId;
 }
 
-export const notebookEdit = async (notebookId: string, content: object, text: string, prompt: string) => {
+export const notebookEdit = async (notebookId: string, content: string, text: string, prompt: string) => {
     const url = buildUrl(API_URL, {
         path: `notebooks/${notebookId}/edit`,
         queryParams: {
@@ -180,7 +180,7 @@ export const notebookChat = async (notebookId: string, prompt: string) => {
     return jobId;
 }
 
-export const getIdeas = async (notebookId: string, content: object) => {
+export const getIdeas = async (notebookId: string, content: string) => {
     const url = buildUrl(API_URL, {
         path: `notebooks/${notebookId}/ideas`,
     });

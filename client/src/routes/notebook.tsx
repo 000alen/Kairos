@@ -86,7 +86,7 @@ export const Notebook = () => {
   }, [id])
 
   const run = useCallback(async (prompt: string) => {
-    const response = await joinJob(await notebookRun(id!, notebook!.content, prompt), () => { });
+    const response = await joinJob(await notebookRun(id!, editor!.getText(), prompt), () => { });
     const selection = editor!.view.state.selection;
     editor!.chain().focus().insertContentAt({
       from: selection.from,
@@ -95,18 +95,18 @@ export const Notebook = () => {
   }, [id, notebook, editor])
 
   const generate = useCallback(async (prompt: string) => {
-    const response = await joinJob(await notebookGenerate(id!, notebook!.content, prompt), () => { });
+    const response = await joinJob(await notebookGenerate(id!, editor!.getText(), prompt), () => { });
     editor!.chain().focus().insertContent(response).run();
-  }, [id, notebook])
+  }, [id, notebook, editor])
 
   const edit = useCallback(async (text: string, prompt: string) => {
-    const response = await joinJob(await notebookEdit(id!, notebook!.content, text, prompt), () => { });
+    const response = await joinJob(await notebookEdit(id!, editor!.getText(), text, prompt), () => { });
     const selection = editor!.view.state.selection;
     editor!.chain().focus().insertContentAt({
       from: selection.from,
       to: selection.to
     }, response).run();
-  }, [id, notebook])
+  }, [id, notebook, editor])
 
   const chat = useCallback(async (prompt: string) => {
     const response = await joinJob(await notebookChat(id!, prompt), () => { });
@@ -115,9 +115,12 @@ export const Notebook = () => {
   }, [id])
 
   const ideas = useCallback(async () => {
-    const response = await joinJob(await getIdeas(id!, notebook!.content), () => { });
-    console.log(response);
-  }, [id, notebook])
+    const responses: string[] = await joinJob(await getIdeas(id!, editor!.getText()), () => { });
+    console.log(responses);
+    responses.forEach((response) => {
+      editor!.chain().focus().insertContent(`${response}\n`).run();
+    });
+  }, [id, notebook, editor])
 
   const onAdd = useCallback(async (type: string, origin: string) => {
     const response = await joinJob(await addSource(id!, type, origin), () => { });

@@ -175,7 +175,7 @@ const MenuBar: React.FC<WithEditorProps> = ({ editor }) => {
 }
 
 export const Tiptap: React.FC<WithEditorProps> = ({ editor }) => {
-    const { run, generate, edit } = useContext(NotebookContext)!;
+    const { run, generate, edit, ideas } = useContext(NotebookContext)!;
 
     const [command, setCommand] = useState<string>('');
 
@@ -239,16 +239,25 @@ export const Tiptap: React.FC<WithEditorProps> = ({ editor }) => {
                     opacity: 0.5,
                     "zIndex": 1000,
                 }}>
-                    <Input
-                        placeholder='Command'
-                        value={command}
-                        onChange={(e) => setCommand(e.target.value)}
-                    />
-                    <Button shape="circle" disabled={!command} icon={<BulbOutlined />}
-                        onClick={() => {
-                            onGenerate(command)
-                        }}
-                    />
+                    <Button
+                        icon={<BulbOutlined />}
+                        onClick={ideas}
+                    >
+                        Ideas
+                    </Button>
+
+                    <Space>
+                        <Input
+                            placeholder='Command'
+                            value={command}
+                            onChange={(e) => setCommand(e.target.value)}
+                        />
+                        <Button shape="circle" disabled={!command} icon={<BulbOutlined />}
+                            onClick={() => {
+                                onGenerate(command)
+                            }}
+                        />
+                    </Space>
                 </Space>
             </FloatingMenu>
 

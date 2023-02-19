@@ -252,7 +252,7 @@ def get_ideas(notebook_id):
     def _thread():
         with _notebooks_lock:
             notebook = _notebooks[notebook_id]
-            output = notebook.get_ideas(content=content)
+            output = notebook.ideas(content=content)
 
         with _jobs_lock:
             # TODO: add error handling

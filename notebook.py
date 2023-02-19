@@ -571,7 +571,7 @@ class Notebook:
         return "\n".join(summaries).strip()
 
     # TODO: Consider notebook content as a source.
-    def run(self, prompt: str, content: Any = None) -> str:
+    def run(self, prompt: str, content: str = None) -> str:
         logging.debug(f"Running notebook: {prompt=}")
 
         if content is not None:
@@ -580,17 +580,31 @@ class Notebook:
         return self._agent.run(prompt).strip()
 
     # TODO: Consider notebook content as a source.
-    def generate(self, prompt: str, content: Any = None) -> str:
+    def generate(self, prompt: str, content: str = None) -> str:
         raise NotImplementedError
 
     # TODO: Consider notebook content as a source.
-    def edit(self, prompt: str, content: Any = None) -> str:
+    def edit(self, prompt: str, content: str = None) -> str:
         raise NotImplementedError
 
     # TODO: Consider notebook content as a source.
-    def ideas(self, content: Any = None) -> str:
-        raise NotImplementedError
+    def ideas(self, content: str = None) -> str:
+        texts = _splitter.split_text(content)
+        texts = [texts[i : i + 3] for i in range(0, len(texts), 3)]
+        texts = ["".join(text) for text in texts]
+        texts = [_re_combine_whitespace.sub(" ", text).strip() for text in texts]
+        prompts = [
+            f'Identify one possible idea you could write about to keep expanding this document: """{text}"""'
+            for text in texts
+        ]
+        responses = self._agent.run(prompts)
 
+        if type(responses) is not list:
+            responses = [responses]
+
+        return responses
+
+    # TODO: Consider notebook content as a source.
     def chat(self, prompt: str) -> str:
         logging.debug(f"Running chat: {prompt=}")
 
