@@ -25,7 +25,7 @@ export const saveFile = async () => {
 }
 
 
-export const createNotebook = async (name: string, path?: string): Promise<string> => {
+export const createNotebook = async (name?: string, path?: string): Promise<string> => {
     const url = buildUrl(API_URL, {
         path: 'notebooks/create',
         queryParams: {

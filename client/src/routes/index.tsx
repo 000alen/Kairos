@@ -1,34 +1,23 @@
 import React from 'react'
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { createNotebook, joinJob, loadNotebook, openFile } from '../api';
 import { useNavigate } from 'react-router-dom';
-import { Button } from 'antd';
+import { Card, Col, Row } from 'antd';
+import { FileAddOutlined, UploadOutlined } from '@ant-design/icons';
 
 export const Index = () => {
     const navigate = useNavigate();
-
-    const [apiUrl, setApiUrl] = useState<string>("http://localhost:8080");
-    const [name, setName] = useState<string>("");
-
-    const onChangeApiUrl = useCallback((e: React.ChangeEvent<HTMLInputElement>) =>
-        setApiUrl(e.target.value)
-        , [setApiUrl])
-
-    const onChangeName = useCallback((e: React.ChangeEvent<HTMLInputElement>) =>
-        setName(e.target.value)
-        , [setName])
-
 
     const navigateToNotebook = useCallback((notebookId: string) => {
         navigate(`/notebook/${notebookId}`);
     }, [navigate])
 
-    const onNewNotebook = useCallback(async () => {
+    const onNewNotebook = useCallback(async (name?: string) => {
         const notebookId = await createNotebook(
             name
         );
         navigateToNotebook(notebookId);
-    }, [name, navigateToNotebook])
+    }, [navigateToNotebook])
 
     const onLoadNotebook = useCallback(async () => {
         const path = await joinJob(await openFile(), () => { });
@@ -37,21 +26,42 @@ export const Index = () => {
     }, [navigateToNotebook])
 
     return (
-        <main>
-            <div>
-                <input type="text" value={apiUrl} onChange={onChangeApiUrl} placeholder='API url' />
-            </div>
-
-            <div>
-                <input type="text" value={name} onChange={onChangeName} placeholder='Notebook name' />
-                {/* <button onClick={onNewNotebook}>New notebook</button> */}
-                <Button onClick={onNewNotebook}>New notebook</Button>
-            </div>
-
-            <div>
-                {/* <button onClick={onLoadNotebook}>Load notebook</button> */}
-                <Button onClick={onLoadNotebook}>Load notebook</Button>
-            </div>
-        </main>
+        <Row gutter={8} style={{
+            height: "100%",
+            backgroundColor: "#eeeeee"
+        }}
+            align={"middle"}
+            justify={"center"}
+        >
+            <Col span={8}>
+                <Card
+                    onClick={() => onNewNotebook()}
+                    cover={<div className='h-96 !flex items-center justify-center bg-gray-200'>
+                        <FileAddOutlined style={{
+                            fontSize: "50px",
+                        }} />
+                    </div>
+                    }
+                >
+                    <Card.Meta title="New notebook" />
+                </Card>
+            </Col>
+            <Col span={8}>
+                <Card
+                    onClick={onLoadNotebook}
+                    cover={
+                        <div className='h-96 !flex items-center justify-center bg-gray-200'>
+                            <UploadOutlined style={{
+                                fontSize: "50px",
+                            }} />
+                        </div>
+                    }
+                >
+                    <Card.Meta title="Load notebook" />
+                </Card>
+            </Col>
+        </Row >
     )
 }
+
+
