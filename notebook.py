@@ -226,6 +226,11 @@ class TranscriberThread(threading.Thread):
             self.notebook.add_ids_to_live_source(self.id, ids)
 
 
+# TODO: Implement
+class IntelligenceThread(threading.Thread):
+    pass
+
+
 class Notebook:
     name: str
     path: Optional[str]

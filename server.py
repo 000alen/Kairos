@@ -1,8 +1,9 @@
 import threading
+import queue
 
 from utils import uuid
-from typing import Dict
-from flask import Flask, request, jsonify
+from typing import Dict, List, Optional
+from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from tkinter import filedialog
 
@@ -357,14 +358,57 @@ def get_job(job_id):
     return jsonify(job)
 
 
-@app.route("/events")
-def get_events():
-    raise NotImplementedError
+class MessageEmitter:
+    qs: Dict[str, List[queue.Queue]]
+
+    def __init__(self):
+        self.qs = {}
+
+    def listen(self, id: str):
+        if id not in self.qs:
+            self.qs[id] = []
+
+        q = queue.Queue(maxsize=5)
+        self.qs[id].append(q)
+        return q
+
+    def emit(self, id: str, message: str):
+        assert id in self.qs
+
+        listeners = self.qs[id]
+
+        for i in reversed(range(len(listeners))):
+            try:
+                listeners[i].put_nowait(message)
+            except queue.Full:
+                del listeners[i]
 
 
-@app.route("/events/<event_id>")
-def get_event(event_id):
-    raise NotImplementedError
+_emitter = MessageEmitter()
+
+
+def _format_sse(data: str, event: Optional[str] = None) -> str:
+    msg = f"data: {data}\n\n"
+    if event is not None:
+        msg = f"event: {event}\n{msg}"
+    return msg
+
+
+@app.route("/ping/<notebook_id>")
+def ping(notebook_id):
+    message = _format_sse(notebook_id, "ping")
+    _emitter.emit(notebook_id, message)
+
+
+@app.route("/events/<notebook_id>")
+def get_events(notebook_id):
+    def _stream():
+        messages = _emitter.listen(notebook_id)
+        while True:
+            message = messages.get()
+            yield message
+
+    return Response(_stream(), mimetype="text/event-stream")
 
 
 if __name__ == "__main__":
