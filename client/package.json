@@ -18,6 +18,9 @@
   "license": "UNLICENSED",
   "private": true,
   "dependencies": {
+    "@tiptap/pm": "^2.0.0-beta.218",
+    "@tiptap/react": "^2.0.0-beta.218",
+    "@tiptap/starter-kit": "^2.0.0-beta.218",
     "build-url-ts": "^6.1.5",
     "localforage": "^1.10.0",
     "match-sorter": "^6.3.1",
