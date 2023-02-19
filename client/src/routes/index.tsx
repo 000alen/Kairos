@@ -1,11 +1,9 @@
-import type React from 'react'
+import React from 'react'
 import { useCallback, useState } from 'react'
 import { createNotebook, joinJob, loadNotebook, openFile } from '../api';
 import { useNavigate } from 'react-router-dom';
 
-export interface IndexProps { }
-
-export const Index: React.FC<IndexProps> = () => {
+export const Index = () => {
     const navigate = useNavigate();
 
     const [apiUrl, setApiUrl] = useState<string>("http://localhost:8080");

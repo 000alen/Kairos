@@ -1,1 +1,0 @@
-import '../globals.st.css';

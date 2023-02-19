@@ -1,4 +1,4 @@
-import type React from 'react'
+import React from 'react'
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { addSource, getIdeas, getNotebook, getSourceSummary, joinJob, notebookEdit, notebookGenerate, notebookRun, saveNotebook, startLiveSource, stopLiveSource } from '../api';
@@ -6,167 +6,178 @@ import type { Notebook as INotebook } from '../typings';
 import { Tiptap } from '../components/Tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit'
+// import useCollapse from '../react-collapsed'
 
 export interface NotebookProps { }
 
 export const Notebook: React.FC<NotebookProps> = () => {
-    const { id } = useParams();
+  const { id } = useParams();
 
-    const editor = useEditor({
-        extensions: [StarterKit]
+  const editor = useEditor({
+    extensions: [StarterKit]
+  })
+
+  // const { getCollapseProps, getToggleProps, isExpanded } = useCollapse()
+
+
+  const [ready, setReady] = useState<boolean>(false);
+  const [notebook, setNotebook] = useState<INotebook | null>(null);
+  const [command, setCommand] = useState<string>("");
+
+  const onChangeCommand = useCallback((e: React.ChangeEvent<HTMLInputElement>) =>
+    setCommand(e.target.value)
+    , [setCommand])
+
+  const initialize = useCallback(async () => {
+    const notebook = await getNotebook(id!);
+
+    console.log(notebook.content);
+
+    if (notebook.content) editor?.chain().setContent(notebook.content).run();
+
+    setNotebook(notebook);
+    setReady(true);
+  }, [setNotebook, setReady, editor])
+
+  useEffect(() => { initialize() }, [initialize])
+
+
+  useEffect(() => {
+    const sse = new EventSource('http://127.0.0.1:5000/events/test');
+
+    sse.addEventListener("ping", (event) => {
+      console.log(event.data)
     })
 
-    const [ready, setReady] = useState<boolean>(false);
-    const [notebook, setNotebook] = useState<INotebook | null>(null);
-    const [command, setCommand] = useState<string>("");
+    return () => {
+      sse.close();
+    }
+  }, [])
 
-    const onChangeCommand = useCallback((e: React.ChangeEvent<HTMLInputElement>) =>
-        setCommand(e.target.value)
-        , [setCommand])
+  const onStartLiveSource = useCallback(async () => {
+    const response = await startLiveSource(id!, "sound", command);
+    console.log(response);
+  }, [id, command])
 
-    const initialize = useCallback(async () => {
-        const notebook = await getNotebook(id!);
+  const onStopLiveSource = useCallback(async () => {
+    const response = await stopLiveSource(id!, command);
+    console.log(response);
+  }, [id, command])
 
-        console.log(notebook.content);
+  const onRun = useCallback(async () => {
+    const response = await joinJob(await notebookRun(id!, notebook!.content, command), () => { });
+    console.log(response);
+  }, [id, command, notebook])
 
-        if (notebook.content) editor?.chain().setContent(notebook.content).run();
+  const onGenerate = useCallback(async () => {
+    const response = await joinJob(await notebookGenerate(id!, notebook!.content, command), () => { });
+    console.log(response);
+  }, [id, command, notebook])
 
-        setNotebook(notebook);
-        setReady(true);
-    }, [setNotebook, setReady, editor])
+  const onEdit = useCallback(async () => {
+    const response = await joinJob(await notebookEdit(id!, notebook!.content, command), () => { });
+    console.log(response);
+  }, [id, command, notebook])
 
-    useEffect(() => { initialize() }, [initialize])
+  const onIdeas = useCallback(async () => {
+    const response = await joinJob(await getIdeas(id!, notebook!.content), () => { });
+    console.log(response);
+  }, [id, notebook])
 
+  const onAdd = useCallback(async (type: string, origin: string) => {
+    const response = await joinJob(await addSource(id!, type, origin), () => { });
+    return response;
+  }, [id, command])
 
-    useEffect(() => {
-        const sse = new EventSource('http://127.0.0.1:5000/events/test');
+  const onAddPdf = useCallback(async () => {
+    const response = await onAdd("pdf", command);
+    console.log(response);
+  }, [id, command, onAdd])
 
-        sse.addEventListener("ping", (event) => {
-            console.log(event.data)
-        })
+  const onAddYoutube = useCallback(async () => {
+    const response = await onAdd("youtube", command);
+    console.log(response);
+  }, [id, command, onAdd])
 
-        return () => {
-            sse.close();
-        }
-    }, [])
+  const onAddWeb = useCallback(async () => {
+    const response = await onAdd("web", command);
+    console.log(response);
+  }, [id, command, onAdd])
 
-    const onStartLiveSource = useCallback(async () => {
-        const response = await startLiveSource(id!, "sound", command);
-        console.log(response);
-    }, [id, command])
+  const onSourceSummary = useCallback(async (sourceId: string) => {
+    const lastK = command ? parseInt(command) : undefined;
+    const response = await joinJob(await getSourceSummary(id!, sourceId, lastK), () => { });
+    console.log(response);
+  }, [id, command])
 
-    const onStopLiveSource = useCallback(async () => {
-        const response = await stopLiveSource(id!, command);
-        console.log(response);
-    }, [id, command])
+  const onLiveSourceSummary = useCallback(async (sourceId: string) => {
+    const lastK = command ? parseInt(command) : undefined;
+    const response = await joinJob(await getSourceSummary(id!, sourceId, lastK), () => { });
+    console.log(response);
+  }, [id, command])
 
-    const onRun = useCallback(async () => {
-        const response = await joinJob(await notebookRun(id!, notebook!.content, command), () => { });
-        console.log(response);
-    }, [id, command, notebook])
+  const onSave = useCallback(async () => {
+    const content = editor!.getJSON();
+    await joinJob(await saveNotebook(id!, content), () => { });
+  }, [id, command, editor]);
 
-    const onGenerate = useCallback(async () => {
-        const response = await joinJob(await notebookGenerate(id!, notebook!.content, command), () => { });
-        console.log(response);
-    }, [id, command, notebook])
+  return (
+    ready ?
+      <div>
+        <h1>{notebook!.name}</h1>
 
-    const onEdit = useCallback(async () => {
-        const response = await joinJob(await notebookEdit(id!, notebook!.content, command), () => { });
-        console.log(response);
-    }, [id, command, notebook])
+        <div>
+          <h2>Sources</h2>
+          <ul>
+            {notebook!.sources.map((source) => (
+              <li key={source.origin}>
+                <button onClick={() => onSourceSummary(source.id)}>Summary</button>
+                {source.type}: {source.origin}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-    const onIdeas = useCallback(async () => {
-        const response = await joinJob(await getIdeas(id!, notebook!.content), () => { });
-        console.log(response);
-    }, [id, notebook])
+        <div>
+          <h2>Live sources</h2>
+          <ul>
+            {notebook!.live_sources.map((source) => (
+              <li key={source.origin}>
+                <button onClick={() => onLiveSourceSummary(source.id)}>Summary</button>
+                {source.type}: {source.origin}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-    const onAdd = useCallback(async (type: string, origin: string) => {
-        const response = await joinJob(await addSource(id!, type, origin), () => { });
-        return response;
-    }, [id, command])
+        <div>
+          <Tiptap editor={editor!} />
+        </div>
 
-    const onAddPdf = useCallback(async () => {
-        const response = await onAdd("pdf", command);
-        console.log(response);
-    }, [id, command])
+        <div>
+          <h2>Commands</h2>
+          <input type="text" value={command} onChange={onChangeCommand} placeholder='Command' />
 
-    const onAddYoutube = useCallback(async () => {
-        const response = await onAdd("youtube", command);
-        console.log(response);
-    }, [id, command])
+          <div>
+            <button onClick={onRun}>Run</button>
+            <button onClick={onGenerate}>Generate</button>
+            <button onClick={onEdit}>Edit</button>
+            <button onClick={onIdeas}>Ideas</button>
+            <button onClick={onAddPdf}>Add PDF</button>
+            <button onClick={onAddYoutube}>Add Youtube</button>
+            <button onClick={onAddWeb}>Add Web</button>
+            <button onClick={onStartLiveSource}>Start live source</button>
+            <button onClick={onStopLiveSource}>Stop live source</button>
+            <button onClick={onSave}>Save</button>
+          </div>
+        </div>
 
-    const onAddWeb = useCallback(async () => {
-        const response = await onAdd("web", command);
-        console.log(response);
-    }, [id, command])
-
-    const onSourceSummary = useCallback(async (sourceId: string) => {
-        const lastK = command ? parseInt(command) : undefined;
-        const response = await joinJob(await getSourceSummary(id!, sourceId, lastK), () => { });
-        console.log(response);
-    }, [id, command])
-
-    const onLiveSourceSummary = useCallback(async (sourceId: string) => {
-        const lastK = command ? parseInt(command) : undefined;
-        const response = await joinJob(await getSourceSummary(id!, sourceId, lastK), () => { });
-        console.log(response);
-    }, [id, command])
-
-    const onSave = useCallback(async () => {
-        const content = editor!.getJSON();
-        await joinJob(await saveNotebook(id!, content), () => { });
-    }, [id, command, editor]);
-
-    return (
-        ready ?
-            <main>
-                <h1>{notebook!.name}</h1>
-
-                <div>
-                    <h2>Sources</h2>
-                    <ul>
-                        {notebook!.sources.map((source) => (
-                            <li key={source.origin}>
-                                <button onClick={() => onSourceSummary(source.id)}>Summary</button>
-                                {source.type}: {source.origin}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                <div>
-                    <h2>Live sources</h2>
-                    <ul>
-                        {notebook!.live_sources.map((source) => (
-                            <li key={source.origin}>
-                                <button onClick={() => onLiveSourceSummary(source.id)}>Summary</button>
-                                {source.type}: {source.origin}
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-
-                <div>
-                    <Tiptap editor={editor!} />
-                </div>
-
-                <div>
-                    <h2>Commands</h2>
-                    <input type="text" value={command} onChange={onChangeCommand} placeholder='Command' />
-
-                    <div>
-                        <button onClick={onRun}>Run</button>
-                        <button onClick={onGenerate}>Generate</button>
-                        <button onClick={onEdit}>Edit</button>
-                        <button onClick={onIdeas}>Ideas</button>
-                        <button onClick={onAddPdf}>Add PDF</button>
-                        <button onClick={onAddYoutube}>Add Youtube</button>
-                        <button onClick={onAddWeb}>Add Web</button>
-                        <button onClick={onStartLiveSource}>Start live source</button>
-                        <button onClick={onStopLiveSource}>Stop live source</button>
-                        <button onClick={onSave}>Save</button>
-                    </div>
-                </div>
-            </main> : null
-    )
+        {/* <div>
+          <button {...getToggleProps()}>
+            {isExpanded ? 'Collapse' : 'Expand'}
+          </button>
+          <section {...getCollapseProps()}>Collapsed content 🙈</section>
+        </div> */}
+      </div> : null
+  )
 }

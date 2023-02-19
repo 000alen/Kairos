@@ -1,34 +1,46 @@
-<div align="center">  
-    <img height="50"src="./src/assets/codux.svg">  
-    <h1><img height="40"src="./src/assets/stylable.svg"> Stylable App template for Codux</h1>
-</div>
+# Getting Started with Create React App
 
-### A Visual IDE for React Projects
+This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
-Codux is an all-in-one visual development environment. Whether you’re starting a new app, creating components, or editing an existing project, every visual change you make reflects instantly in the code and vice versa. To learn more about Codux, visit our website - [https://www.codux.com/](https://www.codux.com/)
+## Available Scripts
 
-This project was bootstrapped with [`create-stylable-app`](https://www.npmjs.com/package/create-stylable-app).
+In the project directory, you can run:
 
-It includes a single React component to start your project with, a sample [`codux.config.json`](codux.config.json) with preconfigured keys, a `package.json` file to describe the project's packages and dependencies, and a folder and component structure to put everything neatly in its place.
+### `npm start`
 
-- Edit, render and compose apps that make use of **`React`**-based components.
-- Create components with **`TypeScript`** and **[`Stylable`](https://github.com/wix/stylable)** support.
-- Visually edit in real-time and in an isolated environment.
+Runs the app in the development mode.\
+Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
 
-### Development
+The page will reload if you make edits.\
+You will also see any lint errors in the console.
 
-The following scripts are available:
+### `npm test`
 
-`npm run build` - Build the application in production mode into a folder named `dist`. This folder can be served using any HTTP server. Uses [webpack](https://github.com/webpack/webpack).
+Launches the test runner in the interactive watch mode.\
+See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
 
-`npm run serve` - Statically serve the `dist` folder. Uses [serve](https://github.com/zeit/serve).
+### `npm run build`
 
-`npm start` - Start the application in **development** mode (and open the web browser). Uses [webpack-dev-server](https://github.com/webpack/webpack-dev-server).
+Builds the app for production to the `build` folder.\
+It correctly bundles React in production mode and optimizes the build for the best performance.
 
-`npm run clean` - Delete the `dist` folder. Uses [rimraf](https://github.com/isaacs/rimraf).
+The build is minified and the filenames include the hashes.\
+Your app is ready to be deployed!
 
-`npm run typecheck` - Verify syntactic/semantic correctness. Uses [typescript](https://github.com/microsoft/TypeScript). To read more about Stylable integration with typescript check out [our documentation](https://stylable.io/docs/getting-started/typescript-integration).
+See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
 
-`npm run lint` - Verify best practices and find common issues. Uses [eslint](https://github.com/eslint/eslint).
+### `npm run eject`
 
-`npm test` - Execute `typecheck` and `lint` scripts.
+**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+
+If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+
+Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+
+You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+
+## Learn More
+
+You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+
+To learn React, check out the [React documentation](https://reactjs.org/).
