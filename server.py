@@ -83,7 +83,7 @@ def save_notebook(notebook_id):
     def _thread():
         with _notebooks_lock:
             notebook = _notebooks[notebook_id]
-            notebook.save(path, content)
+            notebook.save(content, path=path)
 
         with _jobs_lock:
             # TODO: add error handling

@@ -341,7 +341,7 @@ class Notebook:
             "content": self.content,
         }
 
-    def save(self, path: Optional[str] = None):
+    def save(self, content: Any, path: Optional[str] = None):
         logging.debug(f"Saving notebook: {path=}")
 
         if self.path is None and path is None:
@@ -352,6 +352,7 @@ class Notebook:
 
         path = Path(self.path)
 
+        self.content = content
         self._faiss.save_local(self.path)
 
         json.dump(
@@ -510,19 +511,22 @@ class Notebook:
         return "\n".join(summaries).strip()
 
     # TODO: Consider notebook content as a source.
-    def run(self, prompt: str) -> str:
+    def run(self, prompt: str, content: Any = None) -> str:
         logging.debug(f"Running notebook: {prompt=}")
+
+        if content is not None:
+            self.content = content
 
         return self._agent.run(prompt).strip()
 
     # TODO: Consider notebook content as a source.
-    def generate(self):
+    def generate(self, prompt: str, content: Any = None) -> str:
         raise NotImplementedError
 
     # TODO: Consider notebook content as a source.
-    def edit(self):
+    def edit(self, prompt: str, content: Any = None) -> str:
         raise NotImplementedError
 
     # TODO: Consider notebook content as a source.
-    def ideas(self):
+    def ideas(self, content: Any = None) -> str:
         raise NotImplementedError
