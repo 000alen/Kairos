@@ -225,6 +225,28 @@ def notebook_edit(notebook_id):
     return jsonify(job_id)
 
 
+@app.route("/notebooks/<notebook_id>/chat")
+def notebook_chat(notebook_id):
+    def _thread():
+        with _notebooks_lock:
+            notebook = _notebooks[notebook_id]
+            output = notebook.chat(prompt)
+
+        with _jobs_lock:
+            _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = output
+        
+    prompt = request.args.get("prompt")
+
+    job_id = uuid()
+    with _jobs_lock:
+        _jobs[job_id] = {"status": "running"}
+    
+    thread = threading.Thread(target=_thread)
+    thread.start()
+
+    return jsonify(job_id)
+
 @app.route("/notebooks/<notebook_id>/ideas", methods=["POST"])
 def get_ideas(notebook_id):
     def _thread():

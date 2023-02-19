@@ -166,6 +166,20 @@ export const notebookEdit = async (notebookId: string, content: object, text: st
     return jobId;
 }
 
+export const notebookChat = async (notebookId: string, prompt: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/chat`,
+        queryParams: {
+            prompt
+        }
+    });
+
+    const response = await fetch(url);
+    const jobId = await response.json();
+
+    return jobId;
+}
+
 export const getIdeas = async (notebookId: string, content: object) => {
     const url = buildUrl(API_URL, {
         path: `notebooks/${notebookId}/ideas`,

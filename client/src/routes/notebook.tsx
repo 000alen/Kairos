@@ -1,7 +1,7 @@
 import React, { createContext, useMemo } from 'react'
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { addSource, getIdeas, getNotebook, getSourceSummary, joinJob, notebookEdit, notebookGenerate, notebookRun, saveNotebook, startLiveSource as _startLiveSource, stopLiveSource as _stopLiveSource, renameNotebook } from '../api';
+import { addSource, getIdeas, getNotebook, getSourceSummary, joinJob, notebookEdit, notebookGenerate, notebookRun, saveNotebook, startLiveSource as _startLiveSource, stopLiveSource as _stopLiveSource, renameNotebook, notebookChat } from '../api';
 import { Notebook as INotebook, INotebookContext } from '../typings';
 import { Tiptap } from '../components/Tiptap';
 import { useEditor } from '@tiptap/react';
@@ -108,6 +108,12 @@ export const Notebook = () => {
     }, response).run();
   }, [id, notebook])
 
+  const chat = useCallback(async (prompt: string) => {
+    const response = await joinJob(await notebookChat(id!, prompt), () => { });
+    console.log(response);
+    return response;
+  }, [id])
+
   const ideas = useCallback(async () => {
     const response = await joinJob(await getIdeas(id!, notebook!.content), () => { });
     console.log(response);
@@ -159,6 +165,7 @@ export const Notebook = () => {
     run,
     generate,
     edit,
+    chat,
     ideas,
     addPdf,
     addYoutube,
@@ -175,6 +182,7 @@ export const Notebook = () => {
     run,
     generate,
     edit,
+    chat,
     ideas,
     addPdf,
     addYoutube,

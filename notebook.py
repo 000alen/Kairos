@@ -20,8 +20,11 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.llms import OpenAI
-from langchain.agents import initialize_agent, Tool, ZeroShotAgent
+from langchain.agents import initialize_agent, Tool, ZeroShotAgent, ConversationalAgent
 from langchain.docstore.document import Document
+from langchain.serpapi import SerpAPIWrapper
+from langchain.utilities.wolfram_alpha import WolframAlphaAPIWrapper
+from langchain.chains.conversation.memory import ConversationBufferMemory
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
 load_dotenv()
@@ -32,6 +35,7 @@ load_dotenv()
 
 
 _AGENT = "zero-shot-react-description"
+_CONVERSATIONAL_AGENT = "conversational-react-description"
 
 _TRANSCRIBER_MODEL = "openai/whisper-medium"
 
@@ -58,12 +62,24 @@ _calculator_tool = Tool(
     func=_llm_math.run,
 )
 
+_google_tool = Tool(
+    name="Google",
+    description="A search engine for the internet. Should only be used if the search engine for the . Useful for when you need to answer questions about current events. Input should be a search query.",
+    func=SerpAPIWrapper().run,
+    coroutine=SerpAPIWrapper().arun,
+)
+
+_wolfram_tool = Tool(
+    name="Wolfram Alpha",
+    description="A wrapper around Wolfram Alpha. Useful for when you need to answer questions about Math, Science, Technology, Culture, Society and Everyday Life. Input should be a search query.",
+    func=WolframAlphaAPIWrapper().run,
+)
+
 _re_combine_whitespace = re.compile(r"\s+")
 
 _sound_sample_rate = 16000
 
 _sound_sample_length = 15
-
 
 _transcriber_processor = None
 
@@ -238,11 +254,15 @@ class Notebook:
     path: Optional[str]
     sources: List[Source]
     live_sources: List[Source]
+    conversation: List[Dict]
     content: Any
 
     _faiss: Optional[FAISS]
     _tools: List[Tool]
     _agent: ZeroShotAgent
+
+    _conversational_memory: ConversationBufferMemory
+    _conversational_agent: ConversationalAgent
 
     _to_transcribe_queue: Optional[queue.Queue]
     _recorder_thread: Optional[RecorderThread]
@@ -260,13 +280,11 @@ class Notebook:
         self.path = path
         self.sources = []
         self.live_sources = []
+        self.conversation = []
         self.content = None
 
         self._faiss = None
-        self._tools = [
-            self._search_tool,
-            _calculator_tool,
-        ]
+        self._tools = [self._search_tool, _calculator_tool, _google_tool, _wolfram_tool]
 
         logging.debug(
             f"Initializing agent: {_llm=} {self._tools=} {_AGENT=} {verbose=}"
@@ -276,6 +294,20 @@ class Notebook:
             tools=self._tools,
             agent=_AGENT,
             verbose=verbose,
+        )
+
+        logging.debug(
+            f"Initializing conversational agent: {_llm=} {self._tools=} {_CONVERSATIONAL_AGENT=} {verbose=}"
+        )
+        self._conversational_memory = ConversationBufferMemory(
+            memory_key="chat_history"
+        )
+        self._conversational_agent = initialize_agent(
+            llm=_llm,
+            tools=self._tools,
+            agent=_CONVERSATIONAL_AGENT,
+            verbose=verbose,
+            memory=self._conversational_memory,
         )
 
         self._to_transcribe_queue = None
@@ -298,11 +330,12 @@ class Notebook:
         notebook = cls(name=_json["name"], path=path)
         notebook.sources = _json["sources"]
         notebook.live_sources = _json["live_sources"]
+        notebook.conversation = _json["conversation"]
         notebook.content = _json["content"]
 
         logging.debug(f"Loading FAISS index: {path=}, {_embeddings=}")
 
-        if os.path.exists(path / "faiss.index"):
+        if os.path.exists(_path / "index.faiss"):
             notebook._faiss = FAISS.load_local(path, _embeddings)
 
         return notebook
@@ -311,7 +344,7 @@ class Notebook:
     def _search_tool(self) -> Tool:
         return Tool(
             name="Search",
-            description="useful for when you need to find something on the internet",
+            description="A search engine for the relevant knowledge database. Use this tool before using Google. Search for a topic and get the most relevant documents. Input should be a search query.",
             func=self._search_tool_func,
         )
 
@@ -353,6 +386,7 @@ class Notebook:
             "name": self.name,
             "sources": self.sources,
             "live_sources": self.live_sources,
+            "conversation": self.conversation,
             "content": self.content,
         }
 
@@ -556,3 +590,24 @@ class Notebook:
     # TODO: Consider notebook content as a source.
     def ideas(self, content: Any = None) -> str:
         raise NotImplementedError
+
+    def chat(self, prompt: str) -> str:
+        logging.debug(f"Running chat: {prompt=}")
+
+        self.conversation.append(
+            {
+                "sender": "Human",
+                "text": prompt,
+            }
+        )
+
+        response = self._conversational_agent.run(prompt).strip()
+
+        self.conversation.append(
+            {
+                "sender": "AI",
+                "text": response,
+            }
+        )
+
+        return response
