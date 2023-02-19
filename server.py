@@ -1,10 +1,10 @@
 import threading
-# import logging
 
 from utils import uuid
 from typing import Dict
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from tkinter import filedialog
 
 from notebook import Notebook
 
@@ -17,6 +17,44 @@ _jobs_lock = threading.Lock()
 
 app = Flask(__name__)
 CORS(app)
+
+
+@app.route("/files/open")
+def open_file():
+    def _thread():
+        path = filedialog.askdirectory()
+
+        with _jobs_lock:
+            _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = path
+
+    job_id = uuid()
+    with _jobs_lock:
+        _jobs[job_id] = {"status": "running"}
+
+    thread = threading.Thread(target=_thread)
+    thread.start()
+
+    return jsonify(job_id)
+
+
+@app.route("/files/save", methods=["POST"])
+def save_file():
+    def _thread():
+        path = filedialog.askdirectory()
+
+        with _jobs_lock:
+            _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = path
+
+    job_id = uuid()
+    with _jobs_lock:
+        _jobs[job_id] = {"status": "running"}
+
+    thread = threading.Thread(target=_thread)
+    thread.start()
+
+    return jsonify(job_id)
 
 
 @app.route("/notebooks/create")
@@ -32,7 +70,7 @@ def create_notebook():
     return jsonify(id)
 
 
-@app.route("/notebook/<notebook_id>")
+@app.route("/notebooks/<notebook_id>")
 def get_notebook(notebook_id):
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
@@ -73,6 +111,7 @@ def load_notebook():
         with _jobs_lock:
             # TODO: add error handling
             _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = job_id
 
     path = request.args.get("path")
 
@@ -191,11 +230,12 @@ def add_source(notebook_id):
     def _thread():
         with _notebooks_lock:
             notebook = _notebooks[notebook_id]
-            notebook.add_source(type, origin)
+            id = notebook.add_source(type, origin)
 
         with _jobs_lock:
             # TODO: add error handling
             _jobs[job_id]["status"] = "finished"
+            _jobs[job_id]["output"] = id
 
     type = request.args.get("type")
     origin = request.args.get("origin")
@@ -251,9 +291,9 @@ def start_live_source(notebook_id):
 
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
-        notebook.start_live_source(type, origin)
+        id = notebook.start_live_source(type, origin)
 
-    return jsonify(True)
+    return jsonify(id)
 
 
 # TODO: add error handling

@@ -2,6 +2,28 @@ import { buildUrl } from "build-url-ts"
 
 const API_URL = 'http://127.0.0.1:5000';
 
+export const openFile = async () => {
+    const url = buildUrl(API_URL, {
+        path: 'files/open',
+    });
+
+    const response = await fetch(url);
+    const path = await response.json();
+
+    return path;
+}
+
+export const saveFile = async () => {
+    const url = buildUrl(API_URL, {
+        path: 'files/save',
+    });
+
+    const response = await fetch(url);
+    const path = await response.json();
+
+    return path;
+}
+
 
 export const createNotebook = async (name: string, path?: string): Promise<string> => {
     const url = buildUrl(API_URL, {
@@ -13,7 +35,7 @@ export const createNotebook = async (name: string, path?: string): Promise<strin
     });
 
     const response = await fetch(url);
-    const id = await response.text();
+    const id = await response.json();
 
     return id;
 }
@@ -44,7 +66,7 @@ export const saveNotebook = async (notebookId: string, content: object, path?: s
         },
         body: JSON.stringify(content),
     });
-    const jobId = await response.text();
+    const jobId = await response.json();
 
     return jobId;
 }
@@ -58,7 +80,7 @@ export const loadNotebook = async (path: string) => {
     });
 
     const response = await fetch(url);
-    const jobId = await response.text();
+    const jobId = await response.json();
 
     return jobId;
 }
@@ -78,7 +100,7 @@ export const notebookRun = async (notebookId: string, content: object, prompt: s
         },
         body: JSON.stringify(content),
     });
-    const jobId = await response.text();
+    const jobId = await response.json();
 
     return jobId;
 }
@@ -98,7 +120,7 @@ export const notebookGenerate = async (notebookId: string, content: object, prom
         },
         body: JSON.stringify(content),
     });
-    const jobId = await response.text();
+    const jobId = await response.json();
 
     return jobId;
 }
@@ -118,7 +140,7 @@ export const notebookEdit = async (notebookId: string, content: object, prompt: 
         },
         body: JSON.stringify(content),
     });
-    const jobId = await response.text();
+    const jobId = await response.json();
 
     return jobId;
 }
@@ -135,7 +157,7 @@ export const getIdeas = async (notebookId: string, content: object) => {
         },
         body: JSON.stringify(content),
     });
-    const jobId = await response.text();
+    const jobId = await response.json();
 
     return jobId;
 }
@@ -150,7 +172,7 @@ export const addSource = async (notebookId: string, type: string, origin: string
     });
 
     const response = await fetch(url);
-    const jobId = await response.text();
+    const jobId = await response.json();
 
     return jobId;
 }
@@ -175,7 +197,7 @@ export const getSourceSummary = async (notebookId: string, sourceId: string, las
     });
 
     const response = await fetch(url);
-    const jobId = await response.text();
+    const jobId = await response.json();
 
     return jobId;
 }
@@ -215,7 +237,7 @@ export const getLiveSourceSummary = async (notebookId: string, sourceId: string,
     });
 
     const response = await fetch(url);
-    const jobId = await response.text();
+    const jobId = await response.json();
 
     return jobId;
 }
@@ -251,4 +273,19 @@ export const getJob = async (jobId: string) => {
     const job = await response.json();
 
     return job;
+}
+
+const sleep = (time: number) => new Promise(resolve => setTimeout(resolve, time));
+
+
+export const joinJob = async (jobId: string, onProgressCallback: Function, timeout: number = 250) => {
+    let job = await getJob(jobId);
+
+    while (job.status === 'running') {
+        onProgressCallback(job);
+        await sleep(timeout);
+        job = await getJob(jobId);
+    }
+
+    return job.output;
 }
