@@ -1,0 +1,6 @@
+Flask==2.2.3
+Flask_Cors==3.0.10
+langchain==0.0.89
+names_generator==0.1.0
+python-dotenv==0.21.1
+SoundCard==0.4.2
