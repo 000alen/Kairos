@@ -398,6 +398,7 @@ def _format_sse(data: str, event: Optional[str] = None) -> str:
 def ping(notebook_id):
     message = _format_sse(notebook_id, "ping")
     _emitter.emit(notebook_id, message)
+    return jsonify(True)
 
 
 @app.route("/events/<notebook_id>")
