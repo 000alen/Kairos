@@ -1,6 +1,8 @@
-import React from 'react'
+import React, { useCallback, useContext, useState } from 'react'
 import { Editor, EditorContent, FloatingMenu, BubbleMenu } from '@tiptap/react'
-import { Button, Space } from 'antd'
+import { Button, Input, Space } from 'antd'
+import { NotebookContext } from '../routes/notebook'
+import { BulbOutlined } from '@ant-design/icons'
 
 export interface WithEditorProps {
     editor: Editor
@@ -173,47 +175,80 @@ const MenuBar: React.FC<WithEditorProps> = ({ editor }) => {
 }
 
 export const Tiptap: React.FC<WithEditorProps> = ({ editor }) => {
+    const { run, generate, edit } = useContext(NotebookContext)!;
+
+    const [command, setCommand] = useState<string>('');
+
+    const onRun = useCallback(async (prompt: string) => {
+        await run(prompt)
+    }, [run])
+
+    const onGenerate = useCallback(async (prompt: string) => {
+        await generate(prompt)
+    }, [generate, setCommand])
+
+    const onEdit = useCallback(async (text: string, prompt: string) => {
+        console.log('edit', prompt)
+        setCommand("")
+    }, [
+        edit, setCommand
+    ])
+
     return (
         <div>
             <MenuBar editor={editor} />
 
             <BubbleMenu editor={editor} >
-                <Space>
+                <Space
+                    style={{
+                        opacity: 0.5,
+                        "zIndex": 1000,
+                    }}
+                >
                     <Button
-                        onClick={() => editor.chain().focus().toggleBold().run()}
+                        icon={<BulbOutlined />}
+                        onClick={() => {
+                            const { view, state } = editor
+                            const { from, to } = view.state.selection
+                            const text = state.doc.textBetween(from, to, '')
+                            onRun(text)
+                        }}
                     >
-                        bold
+                        Run
                     </Button>
-                    <Button
-                        onClick={() => editor.chain().focus().toggleItalic().run()}
-                    >
-                        italic
-                    </Button>
-                    <Button
-                        onClick={() => editor.chain().focus().toggleStrike().run()}
-                    >
-                        strike
-                    </Button>
+                    <Space>
+                        <Input
+                            placeholder='Command'
+                            value={command}
+                            onChange={(e) => setCommand(e.target.value)}
+                        />
+                        <Button shape="circle" disabled={!command} icon={<BulbOutlined />}
+                            onClick={() => {
+                                const { view, state } = editor
+                                const { from, to } = view.state.selection
+                                const text = state.doc.textBetween(from, to, '')
+                                onEdit(text, command)
+                            }}
+                        />
+                    </Space>
                 </Space>
             </BubbleMenu>
 
-            <FloatingMenu editor={editor} >
-                <Space>
-                    <Button
-                        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                    >
-                        h1
-                    </Button>
-                    <Button
-                        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                    >
-                        h2
-                    </Button>
-                    <Button
-                        onClick={() => editor.chain().focus().toggleBulletList().run()}
-                    >
-                        bullet list
-                    </Button>
+            <FloatingMenu editor={editor}>
+                <Space style={{
+                    opacity: 0.5,
+                    "zIndex": 1000,
+                }}>
+                    <Input
+                        placeholder='Command'
+                        value={command}
+                        onChange={(e) => setCommand(e.target.value)}
+                    />
+                    <Button shape="circle" disabled={!command} icon={<BulbOutlined />}
+                        onClick={() => {
+                            onGenerate(command)
+                        }}
+                    />
                 </Space>
             </FloatingMenu>
 

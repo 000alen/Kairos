@@ -17,9 +17,9 @@ export interface INotebookContext {
     notebook: Notebook;
     startLiveSource: (origin: string) => Promise<void>;
     stopLiveSource: (origin: string) => Promise<void>;
-    run: () => Promise<void>;
-    generate: () => Promise<void>;
-    edit: () => Promise<void>;
+    run: (prompt: string) => Promise<void>;
+    generate: (prompt: string) => Promise<void>;
+    edit: (text: string, prompt: string) => Promise<void>;
     ideas: () => Promise<void>;
     addPdf: (origin: string) => Promise<void>;
     addYoutube: (origin: string) => Promise<void>;

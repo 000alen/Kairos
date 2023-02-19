@@ -126,7 +126,7 @@ def load_notebook():
     return jsonify(job_id)
 
 
-@app.route("/notebooks/<notebook_id>/run")
+@app.route("/notebooks/<notebook_id>/run", methods=["POST"])
 def notebook_run(notebook_id):
     def _thread():
         with _notebooks_lock:
@@ -151,7 +151,7 @@ def notebook_run(notebook_id):
     return jsonify(job_id)
 
 
-@app.route("/notebooks/<notebook_id>/generate")
+@app.route("/notebooks/<notebook_id>/generate", methods=["POST"])
 def notebook_generate(notebook_id):
     def _thread():
         with _notebooks_lock:
@@ -176,7 +176,7 @@ def notebook_generate(notebook_id):
     return jsonify(job_id)
 
 
-@app.route("/notebooks/<notebook_id>/edit")
+@app.route("/notebooks/<notebook_id>/edit", methods=["POST"])
 def notebook_edit(notebook_id):
     def _thread():
         with _notebooks_lock:
@@ -202,7 +202,7 @@ def notebook_edit(notebook_id):
     return jsonify(job_id)
 
 
-@app.route("/notebooks/<notebook_id>/ideas")
+@app.route("/notebooks/<notebook_id>/ideas", methods=["POST"])
 def get_ideas(notebook_id):
     def _thread():
         with _notebooks_lock:

@@ -6,15 +6,15 @@ import { Notebook as INotebook, INotebookContext } from '../typings';
 import { Tiptap } from '../components/Tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit'
-import { FloatButton, Layout } from 'antd';
+import { FloatButton, Layout, Tooltip, Typography } from 'antd';
 import { AudioOutlined, MessageOutlined, SaveOutlined } from '@ant-design/icons';
 import Placeholder from '@tiptap/extension-placeholder'
 
-import "../styles/notebook.css"
 import { ChatDrawer } from '../components/ChatDrawer';
 import { SourcesDrawer } from '../components/SourcesDrawer';
 import { LiveSourcesDrawer } from '../components/LiveSourcesDrawer';
 
+const { Title } = Typography;
 const { Header, Content } = Layout;
 
 export const NotebookContext = createContext<INotebookContext | null>(null);
@@ -35,7 +35,6 @@ export const Notebook = () => {
 
   const [ready, setReady] = useState<boolean>(false);
   const [notebook, setNotebook] = useState<INotebook | null>(null);
-  const [command, setCommand] = useState<string>("");
 
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
@@ -75,20 +74,28 @@ export const Notebook = () => {
     console.log(response);
   }, [id])
 
-  const run = useCallback(async () => {
-    const response = await joinJob(await notebookRun(id!, notebook!.content, command), () => { });
-    console.log(response);
-  }, [id, command, notebook])
+  const run = useCallback(async (prompt: string) => {
+    const response = await joinJob(await notebookRun(id!, notebook!.content, prompt), () => { });
+    const selection = editor!.view.state.selection;
+    editor!.chain().focus().insertContentAt({
+      from: selection.from,
+      to: selection.to
+    }, response).run();
+  }, [id, notebook, editor])
 
-  const generate = useCallback(async () => {
-    const response = await joinJob(await notebookGenerate(id!, notebook!.content, command), () => { });
-    console.log(response);
-  }, [id, command, notebook])
+  const generate = useCallback(async (prompt: string) => {
+    const response = await joinJob(await notebookGenerate(id!, notebook!.content, prompt), () => { });
+    editor!.chain().focus().insertContent(response).run();
+  }, [id, notebook])
 
-  const edit = useCallback(async () => {
-    const response = await joinJob(await notebookEdit(id!, notebook!.content, command), () => { });
-    console.log(response);
-  }, [id, command, notebook])
+  const edit = useCallback(async (text: string, prompt: string) => {
+    const response = await joinJob(await notebookEdit(id!, notebook!.content, text, prompt), () => { });
+    const selection = editor!.view.state.selection;
+    editor!.chain().focus().insertContentAt({
+      from: selection.from,
+      to: selection.to
+    }, response).run();
+  }, [id, notebook])
 
   const ideas = useCallback(async () => {
     const response = await joinJob(await getIdeas(id!, notebook!.content), () => { });
@@ -116,27 +123,19 @@ export const Notebook = () => {
   }, [onAdd])
 
   const sourceSummary = useCallback(async (sourceId: string) => {
-    const lastK = command ? parseInt(command) : undefined;
-    const response = await joinJob(await getSourceSummary(id!, sourceId, lastK), () => { });
+    const response = await joinJob(await getSourceSummary(id!, sourceId), () => { });
     console.log(response);
-  }, [id, command])
+  }, [id])
 
   const liveSourceSummary = useCallback(async (sourceId: string) => {
-    const lastK = command ? parseInt(command) : undefined;
-    const response = await joinJob(await getSourceSummary(id!, sourceId, lastK), () => { });
+    const response = await joinJob(await getSourceSummary(id!, sourceId), () => { });
     console.log(response);
-  }, [id, command])
+  }, [id])
 
   const save = useCallback(async () => {
     const content = editor!.getJSON();
     await joinJob(await saveNotebook(id!, content), () => { });
   }, [id, editor]);
-
-
-  const onChangeCommand = useCallback((e: React.ChangeEvent<HTMLInputElement>) =>
-    setCommand(e.target.value)
-    , [setCommand])
-
 
   const context = useMemo(() => ({
     id: id!,
@@ -176,8 +175,8 @@ export const Notebook = () => {
         <Layout
           className='h-full'
         >
-          <Header className="header" style={{ position: 'sticky', top: 0, zIndex: 1, width: '100%' }}>
-            <div className="logo" />
+          <Header className="header" style={{ position: 'sticky', display: "flex", top: 0, zIndex: 1, width: '100%', alignItems: "center" }}>
+            <Title level={3} style={{ color: 'white' }}>{notebook!.name}</Title>
           </Header>
 
           <Layout style={{ position: "relative", padding: '0 24px 24px' }}>
@@ -193,10 +192,22 @@ export const Notebook = () => {
             </Content>
 
             <FloatButton.Group shape="square" style={{ left: 24 }}>
-              <FloatButton icon={<AudioOutlined />} onClick={() => setLiveSourcesDrawerOpen(true)} />
-              <FloatButton onClick={() => setSourcesDrawerOpen(true)} />
-              <FloatButton icon={<MessageOutlined />} onClick={() => setChatDrawerOpen(true)} />
-              <FloatButton icon={<SaveOutlined />} onClick={save} />
+
+              <Tooltip placement='right' title="Live sources">
+                <FloatButton icon={<AudioOutlined />} onClick={() => setLiveSourcesDrawerOpen(true)} />
+              </Tooltip>
+
+              <Tooltip placement='right' title="Sources">
+                <FloatButton onClick={() => setSourcesDrawerOpen(true)} />
+              </Tooltip>
+
+              <Tooltip placement='right' title="Chat">
+                <FloatButton icon={<MessageOutlined />} onClick={() => setChatDrawerOpen(true)} />
+              </Tooltip>
+
+              <Tooltip placement='right' title="Save">
+                <FloatButton icon={<SaveOutlined />} onClick={save} />
+              </Tooltip>
             </FloatButton.Group>
           </Layout>
         </Layout>
@@ -208,11 +219,5 @@ export const Notebook = () => {
         <LiveSourcesDrawer open={liveSourcesDrawerOpen} setOpen={setLiveSourcesDrawerOpen} />
       </NotebookContext.Provider>
       : null
-
-    // <input type="text" value={command} onChange={onChangeCommand} placeholder='Command' />
-    // <button onClick={onRun}>Run</button>
-    // <button onClick={onGenerate}>Generate</button>
-    // <button onClick={onEdit}>Edit</button>
-    // <button onClick={onIdeas}>Ideas</button>
   )
 }

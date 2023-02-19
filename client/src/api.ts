@@ -125,10 +125,11 @@ export const notebookGenerate = async (notebookId: string, content: object, prom
     return jobId;
 }
 
-export const notebookEdit = async (notebookId: string, content: object, prompt: string) => {
+export const notebookEdit = async (notebookId: string, content: object, text: string, prompt: string) => {
     const url = buildUrl(API_URL, {
         path: `notebooks/${notebookId}/edit`,
         queryParams: {
+            text,
             prompt
         }
     });
