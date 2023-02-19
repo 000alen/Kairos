@@ -1,7 +1,7 @@
 import React, { createContext, useMemo } from 'react'
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { addSource, getIdeas, getNotebook, getSourceSummary, joinJob, notebookEdit, notebookGenerate, notebookRun, saveNotebook, startLiveSource as _startLiveSource, stopLiveSource as _stopLiveSource } from '../api';
+import { addSource, getIdeas, getNotebook, getSourceSummary, joinJob, notebookEdit, notebookGenerate, notebookRun, saveNotebook, startLiveSource as _startLiveSource, stopLiveSource as _stopLiveSource, renameNotebook } from '../api';
 import { Notebook as INotebook, INotebookContext } from '../typings';
 import { Tiptap } from '../components/Tiptap';
 import { useEditor } from '@tiptap/react';
@@ -36,6 +36,8 @@ export const Notebook = () => {
   const [ready, setReady] = useState<boolean>(false);
   const [notebook, setNotebook] = useState<INotebook | null>(null);
 
+  const [_name, _setName] = useState<string>('');
+
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
   const [liveSourcesDrawerOpen, setLiveSourcesDrawerOpen] = useState(false);
@@ -51,7 +53,6 @@ export const Notebook = () => {
 
   useEffect(() => { initialize() }, [initialize])
 
-
   useEffect(() => {
     const sse = new EventSource('http://127.0.0.1:5000/events/test');
 
@@ -63,6 +64,16 @@ export const Notebook = () => {
       sse.close();
     }
   }, [])
+
+  const rename = useCallback(async (name: string) => {
+    console.log(name);
+    const response = await renameNotebook(id!, name);
+    // console.log(response);
+  }, [id])
+
+  const _rename = useCallback(async () => {
+    await rename(_name);
+  }, [_name, rename])
 
   const startLiveSource = useCallback(async (origin: string) => {
     const response = await _startLiveSource(id!, "sound", origin);
@@ -125,12 +136,14 @@ export const Notebook = () => {
   const sourceSummary = useCallback(async (sourceId: string) => {
     const response = await joinJob(await getSourceSummary(id!, sourceId), () => { });
     console.log(response);
-  }, [id])
+    editor!.chain().focus().insertContent(response).run();
+  }, [id, editor])
 
   const liveSourceSummary = useCallback(async (sourceId: string) => {
     const response = await joinJob(await getSourceSummary(id!, sourceId), () => { });
     console.log(response);
-  }, [id])
+    editor!.chain().focus().insertContent(response).run();
+  }, [id, editor])
 
   const save = useCallback(async () => {
     const content = editor!.getJSON();
@@ -140,6 +153,7 @@ export const Notebook = () => {
   const context = useMemo(() => ({
     id: id!,
     notebook: notebook!,
+    rename,
     startLiveSource,
     stopLiveSource,
     run,
@@ -155,6 +169,7 @@ export const Notebook = () => {
   }), [
     id,
     notebook,
+    rename,
     startLiveSource,
     stopLiveSource,
     run,
@@ -176,7 +191,11 @@ export const Notebook = () => {
           className='h-full'
         >
           <Header className="header" style={{ position: 'sticky', display: "flex", top: 0, zIndex: 1, width: '100%', alignItems: "center" }}>
-            <Title level={3} style={{ color: 'white' }}>{notebook!.name}</Title>
+            <Title editable={{
+              onChange: _setName,
+              onEnd: _rename,
+              tooltip: 'Click to rename',
+            }} level={3} style={{ color: 'white', margin: 0 }}>{notebook!.name}</Title>
           </Header>
 
           <Layout style={{ position: "relative", padding: '0 24px 24px' }}>

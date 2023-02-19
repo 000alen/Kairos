@@ -15,6 +15,7 @@ export interface Notebook {
 export interface INotebookContext {
     id: string;
     notebook: Notebook;
+    rename: (name: string) => Promise<void>;
     startLiveSource: (origin: string) => Promise<void>;
     stopLiveSource: (origin: string) => Promise<void>;
     run: (prompt: string) => Promise<void>;

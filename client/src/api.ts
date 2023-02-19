@@ -2,9 +2,12 @@ import { buildUrl } from "build-url-ts"
 
 const API_URL = 'http://127.0.0.1:5000';
 
-export const openFile = async () => {
+export const openFile = async (type?: string) => {
     const url = buildUrl(API_URL, {
         path: 'files/open',
+        queryParams: {
+            type
+        }
     });
 
     const response = await fetch(url);
@@ -13,9 +16,12 @@ export const openFile = async () => {
     return path;
 }
 
-export const saveFile = async () => {
+export const saveFile = async (type?: string) => {
     const url = buildUrl(API_URL, {
         path: 'files/save',
+        queryParams: {
+            type
+        }
     });
 
     const response = await fetch(url);
@@ -38,6 +44,20 @@ export const createNotebook = async (name?: string, path?: string): Promise<stri
     const id = await response.json();
 
     return id;
+}
+
+export const renameNotebook = async (notebookId: string, name: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/rename`,
+        queryParams: {
+            name
+        }
+    });
+
+    const response = await fetch(url);
+    const notebook = await response.json();
+
+    return notebook;
 }
 
 export const getNotebook = async (notebookId: string) => {
@@ -71,7 +91,7 @@ export const saveNotebook = async (notebookId: string, content: object, path?: s
     return jobId;
 }
 
-export const loadNotebook = async (path: string) => {
+export const loadNotebook = async (path?: string) => {
     const url = buildUrl(API_URL, {
         path: 'notebooks/load',
         queryParams: {

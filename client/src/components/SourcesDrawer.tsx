@@ -1,6 +1,7 @@
 import React, { useCallback, useContext, useState } from 'react'
 import { Button, Card, Drawer, Input, Select, Space, Typography } from 'antd'
 import { NotebookContext } from '../routes/notebook'
+import { joinJob, openFile } from '../api';
 
 const { Text } = Typography;
 
@@ -42,6 +43,14 @@ export const SourcesDrawer: React.FC<SourcesDrawerProps> = ({ open, setOpen }) =
         ]
     )
 
+    const pick = useCallback(
+        async () => {
+            const path = await joinJob(await openFile("file"), () => { });
+            setSelectedSourceOrigin(path);
+        }, [
+        setSelectedSourceOrigin,
+    ]);
+
     return (
         <Drawer title="Sources" width={520} closable={false} onClose={() => setOpen(false)} open={open}>
             <Space
@@ -76,18 +85,30 @@ export const SourcesDrawer: React.FC<SourcesDrawerProps> = ({ open, setOpen }) =
                         style={{ width: '100%' }}
                     />
 
-                    <Input
-                        placeholder='Origin'
-                        value={selectedSourceOrigin}
-                        onChange={(e) => setSelectedSourceOrigin(e.target.value)}
-                    />
+                    {
+                        selectedSourceType === 'pdf' ? (
+                            <Button
+                                style={{ width: '100%' }}
+                                onClick={pick}
+                            >
+                                Pick a file
+                            </Button>
+
+                        ) : (
+                            <Input
+                                placeholder='Origin'
+                                value={selectedSourceOrigin}
+                                onChange={(e) => setSelectedSourceOrigin(e.target.value)}
+                            />
+                        )
+                    }
 
                     <Button onClick={add}>
                         Add
                     </Button>
                 </Space>
             </Drawer>
-        </Drawer>
+        </Drawer >
     )
 
 

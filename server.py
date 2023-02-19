@@ -23,11 +23,17 @@ CORS(app)
 @app.route("/files/open")
 def open_file():
     def _thread():
-        path = filedialog.askdirectory()
+        path = (
+            filedialog.askopenfilename()
+            if type == "file"
+            else filedialog.askdirectory()
+        )
 
         with _jobs_lock:
             _jobs[job_id]["status"] = "finished"
             _jobs[job_id]["output"] = path
+
+    type = request.args.get("type")
 
     job_id = uuid()
     with _jobs_lock:
@@ -42,11 +48,17 @@ def open_file():
 @app.route("/files/save", methods=["POST"])
 def save_file():
     def _thread():
-        path = filedialog.askdirectory()
+        path = (
+            filedialog.asksaveasfilename()
+            if type == "file"
+            else filedialog.askdirectory()
+        )
 
         with _jobs_lock:
             _jobs[job_id]["status"] = "finished"
             _jobs[job_id]["output"] = path
+
+    type = request.args.get("type")
 
     job_id = uuid()
     with _jobs_lock:
@@ -69,6 +81,17 @@ def create_notebook():
         _notebooks[id] = Notebook(name, path)
 
     return jsonify(id)
+
+
+@app.route("/notebooks/<notebook_id>/rename")
+def rename_notebook(notebook_id):
+    name = request.args.get("name")
+
+    with _notebooks_lock:
+        notebook = _notebooks[notebook_id]
+        notebook.rename(name)
+
+    return jsonify(notebook.to_dict())
 
 
 @app.route("/notebooks/<notebook_id>")

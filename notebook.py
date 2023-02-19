@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import threading
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Dict, Any
 from dotenv import load_dotenv
 from names_generator import generate_name
+from tkinter import filedialog
 
 from langchain import LLMMathChain
 from langchain.document_loaders import PagedPDFSplitter, WebBaseLoader, YoutubeLoader
@@ -281,8 +283,14 @@ class Notebook:
         self._transcriber_thread = None
 
     @classmethod
-    def load(cls, path: str) -> "Notebook":
+    def load(cls, path: Optional[str] = None) -> "Notebook":
         logging.debug(f"Loading notebook: {path=}")
+
+        if path is None:
+            path = filedialog.askdirectory()
+
+        if not path:
+            raise ValueError("No path provided")
 
         _path = Path(path)
         _json = json.load(open(_path / "notebook.json", "r"))
@@ -293,7 +301,9 @@ class Notebook:
         notebook.content = _json["content"]
 
         logging.debug(f"Loading FAISS index: {path=}, {_embeddings=}")
-        notebook._faiss = FAISS.load_local(path, _embeddings)
+
+        if os.path.exists(path / "faiss.index"):
+            notebook._faiss = FAISS.load_local(path, _embeddings)
 
         return notebook
 
@@ -350,6 +360,9 @@ class Notebook:
         logging.debug(f"Saving notebook: {path=}")
 
         if self.path is None and path is None:
+            path = filedialog.askdirectory()
+
+        if self.path is None and path is None:
             raise ValueError("No path specified to save notebook to.")
 
         if path is not None:
@@ -358,12 +371,20 @@ class Notebook:
         path = Path(self.path)
 
         self.content = content
-        self._faiss.save_local(self.path)
+
+        if self._faiss is not None:
+            logging.debug(f"Saving FAISS index: {path=}")
+            self._faiss.save_local(self.path)
 
         json.dump(
             self.to_dict(),
             open(path / "notebook.json", "w"),
         )
+
+    def rename(self, name: str):
+        logging.debug(f"Renaming notebook: {name=}")
+
+        self.name = name
 
     def add_source(self, type: str, origin: str) -> str:
         logging.debug(f"Adding source: {type=}, {origin=}")

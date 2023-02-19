@@ -1,6 +1,6 @@
 import React from 'react'
 import { useCallback } from 'react'
-import { createNotebook, joinJob, loadNotebook, openFile } from '../api';
+import { createNotebook, joinJob, loadNotebook } from '../api';
 import { useNavigate } from 'react-router-dom';
 import { Card, Col, Row } from 'antd';
 import { FileAddOutlined, UploadOutlined } from '@ant-design/icons';
@@ -20,8 +20,7 @@ export const Index = () => {
     }, [navigateToNotebook])
 
     const onLoadNotebook = useCallback(async () => {
-        const path = await joinJob(await openFile(), () => { });
-        const notebookId = await joinJob(await loadNotebook(path), () => { });
+        const notebookId = await joinJob(await loadNotebook(), () => { });
         navigateToNotebook(notebookId);
     }, [navigateToNotebook])
 
