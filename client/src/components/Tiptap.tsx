@@ -1,6 +1,5 @@
-import { EditorContent } from '@tiptap/react'
-import type { Editor } from '@tiptap/react'
-import type React from 'react'
+import React from 'react'
+import { Editor, EditorContent, FloatingMenu, BubbleMenu } from '@tiptap/react'
 import { Button, Space } from 'antd'
 
 export interface WithEditorProps {
@@ -177,6 +176,47 @@ export const Tiptap: React.FC<WithEditorProps> = ({ editor }) => {
     return (
         <div>
             <MenuBar editor={editor} />
+
+            <BubbleMenu editor={editor} >
+                <Space>
+                    <Button
+                        onClick={() => editor.chain().focus().toggleBold().run()}
+                    >
+                        bold
+                    </Button>
+                    <Button
+                        onClick={() => editor.chain().focus().toggleItalic().run()}
+                    >
+                        italic
+                    </Button>
+                    <Button
+                        onClick={() => editor.chain().focus().toggleStrike().run()}
+                    >
+                        strike
+                    </Button>
+                </Space>
+            </BubbleMenu>
+
+            <FloatingMenu editor={editor} >
+                <Space>
+                    <Button
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                    >
+                        h1
+                    </Button>
+                    <Button
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                    >
+                        h2
+                    </Button>
+                    <Button
+                        onClick={() => editor.chain().focus().toggleBulletList().run()}
+                    >
+                        bullet list
+                    </Button>
+                </Space>
+            </FloatingMenu>
+
             <EditorContent editor={editor} />
         </div>
     )
