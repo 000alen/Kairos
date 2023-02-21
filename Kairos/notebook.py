@@ -165,15 +165,21 @@ class RecorderThread(threading.Thread):
                     numframes=_sound_sample_rate * _sound_sample_length
                 )
 
-                self.to_transcribe_queue.put({"_index": i, "data": data})
+                self.to_transcribe_queue.put(
+                    {
+                        "id": self.id,
+                        "type": self.type,
+                        "origin": self.origin,
+                        "_index": i,
+                        "data": data,
+                    }
+                )
 
 
 # TODO: Consider hosting this in the cloud
 class TranscriberThread(threading.Thread):
     notebook: "Notebook"
     to_transcribe_queue: queue.Queue
-    type: str
-    origin: str
 
     _stop: threading.Event
 
@@ -181,9 +187,6 @@ class TranscriberThread(threading.Thread):
         self,
         notebook: "Notebook",
         to_transcribe_queue: queue.Queue,
-        id: str,
-        type: str,
-        origin: str,
     ):
         super().__init__()
 
@@ -191,9 +194,6 @@ class TranscriberThread(threading.Thread):
 
         self.notebook = notebook
         self.to_transcribe_queue = to_transcribe_queue
-        self.id = id
-        self.type = type
-        self.origin = origin
 
         self._stop = threading.Event()
 
@@ -215,6 +215,9 @@ class TranscriberThread(threading.Thread):
                 return
 
             item = self.to_transcribe_queue.get()
+            id = item["id"]
+            type = item["type"]
+            origin = item["origin"]
             _index = item["_index"]
             data = item["data"]
 
@@ -234,15 +237,15 @@ class TranscriberThread(threading.Thread):
                 page_content=transcription,
                 metadata={
                     "_index": _index,
-                    "type": self.type,
-                    "origin": self.origin,
+                    "type": type,
+                    "origin": origin,
                 },
             )
 
             logging.debug(f"Transcribed: {doc=}")
 
             ids = self.notebook._add_docs([doc])
-            self.notebook.add_ids_to_live_source(self.id, ids)
+            self.notebook.add_ids_to_live_source(id, ids)
 
 
 # TODO: Implement
@@ -250,6 +253,7 @@ class IntelligenceThread(threading.Thread):
     pass
 
 
+# TODO: ypy CRDT
 class Notebook:
     name: str
     path: Optional[str]
@@ -258,16 +262,17 @@ class Notebook:
     conversation: List[Dict]
     content: Any
 
+    _transcriber_thread: Optional[TranscriberThread]
+    _to_transcribe_queue: Optional[queue.Queue]
+
+    _live_sources_threads: Dict[str, RecorderThread]
+
     _faiss: Optional[FAISS]
     _tools: List[Tool]
     _agent: ZeroShotAgent
 
     _conversational_memory: ConversationBufferMemory
     _conversational_agent: ConversationalAgent
-
-    _to_transcribe_queue: Optional[queue.Queue]
-    _recorder_thread: Optional[RecorderThread]
-    _transcriber_thread: Optional[TranscriberThread]
 
     def __init__(
         self, name: str = None, path: Optional[str] = None, verbose: bool = False
@@ -312,8 +317,9 @@ class Notebook:
         )
 
         self._to_transcribe_queue = None
-        self._recorder_thread = None
         self._transcriber_thread = None
+
+        self._live_sources_threads = {}
 
     @classmethod
     def load(cls, path: Optional[str] = None) -> "Notebook":
@@ -348,6 +354,10 @@ class Notebook:
             description="A search engine for the relevant knowledge database. Use this tool before using Google. Search for a topic and get the most relevant documents. Input should be a search query.",
             func=self._search_tool_func,
         )
+
+    @property
+    def running_live_sources(self) -> List[str]:
+        return list(self._live_sources_threads.keys())
 
     def _search_tool_func(self, query: str) -> str:
         logging.debug(f"Running search tool: {query=}")
@@ -446,19 +456,28 @@ class Notebook:
         )
         return id
 
-    # TODO: Add support for multiple live sources
+    def _ensure_transcriber(self):
+        if self._to_transcribe_queue is None:
+            self._to_transcribe_queue = queue.Queue()
+
+        if self._transcriber_thread is None:
+            self._transcriber_thread = TranscriberThread(
+                self, self._to_transcribe_queue
+            )
+            self._transcriber_thread.start()
+
+    def _stop_transcriber(self):
+        if self._transcriber_thread is not None:
+            self._transcriber_thread.stop()
+            self._transcriber_thread = None
+            self._to_transcribe_queue = None
+
+    # TODO: Add support for different types of live sources
     def start_live_source(self, type: str, origin: str) -> str:
         logging.debug(f"Starting live source: {type=}")
 
         if type != "sound":
             raise ValueError(f"Unknown live source type {type}")
-
-        if (
-            self._recorder_thread is not None
-            or self._transcriber_thread is not None
-            or self._to_transcribe_queue is not None
-        ):
-            raise ValueError("Live source already added.")
 
         if self.has_live_source(origin):
             id = self.get_live_source_id(origin)
@@ -466,6 +485,11 @@ class Notebook:
         else:
             id = uuid()
             offset = 0
+
+        if id in self._live_sources_threads:
+            raise ValueError(f"Live source {id} is already running")
+
+        if not self.has_live_source(origin):
             self.live_sources.append(
                 {
                     "id": id,
@@ -475,51 +499,48 @@ class Notebook:
                 }
             )
 
-        to_transcribe_queue = queue.Queue()
-        transcriber_thread = TranscriberThread(
-            self, to_transcribe_queue, id, type, origin
-        )
-        transcriber_thread.start()
-        recorder_thread = RecorderThread(
-            self, to_transcribe_queue, id, type, origin, offset
-        )
-        recorder_thread.start()
+        self._ensure_transcriber()
 
-        self._to_transcribe_queue = to_transcribe_queue
-        self._recorder_thread = recorder_thread
-        self._transcriber_thread = transcriber_thread
+        thread = RecorderThread(
+            self, self._to_transcribe_queue, id, type, origin, offset
+        )
+        thread.start()
+
+        self._live_sources_threads[id] = thread
 
         return id
 
-    # TODO: Add support for multiple live sources
     def stop_live_source(self, id: str):
         logging.debug(f"Stopping live source: {id=}")
 
-        if (
-            self._recorder_thread is None
-            or self._transcriber_thread is None
-            or self._to_transcribe_queue is None
-        ):
-            raise ValueError("No live source added.")
+        if id not in self._live_sources_threads:
+            raise ValueError(f"Live source {id} is not running")
 
-        self._recorder_thread.stop()
-        self._recorder_thread.join()
+        thread = self._live_sources_threads[id]
+        thread.stop()
 
-        self._transcriber_thread.stop()
-        self._transcriber_thread.join()
+        del self._live_sources_threads[id]
 
-        self._recorder_thread = None
-        self._transcriber_thread = None
-        self._to_transcribe_queue = None
+        if not self._live_sources_threads:
+            self._stop_transcriber()
 
     def get_source(self, id: str) -> Source:
-        return next(source for source in self.sources if source["id"] == id)
+        try:
+            return next(source for source in self.sources if source["id"] == id)
+        except StopIteration:
+            return None
 
     def get_live_source(self, id: str) -> Source:
-        return next(source for source in self.live_sources if source["id"] == id)
+        try:
+            return next(source for source in self.live_sources if source["id"] == id)
+        except StopIteration:
+            return None
 
     def has_live_source(self, origin: str) -> bool:
-        return any(source["origin"] == origin for source in self.live_sources)
+        try:
+            return any(source["origin"] == origin for source in self.live_sources)
+        except StopIteration:
+            return False
 
     def get_live_source_id(self, origin: str) -> str:
         return next(

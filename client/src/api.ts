@@ -252,6 +252,17 @@ export const startLiveSource = async (notebookId: string, type: string, origin: 
     return status;
 }
 
+export const getRunningLiveSources = async (notebookId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/live_sources/running`,
+    });
+
+    const response = await fetch(url);
+    const sources = await response.json();
+
+    return sources;
+}
+
 export const getLiveSource = async (notebookId: string, sourceId: string) => {
     const url = buildUrl(API_URL, {
         path: `notebooks/${notebookId}/live_sources/${sourceId}`,
