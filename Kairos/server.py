@@ -1,14 +1,25 @@
 import threading
-import queue
 import functools
 
-from typing import Dict, List, Optional
+from typing import Dict
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from tkinter import filedialog
 
 from Kairos.notebook import Notebook
-from Kairos.utils import uuid
+from Kairos.utils import EventEmitter, uuid
+
+
+app = Flask(__name__)
+CORS(app)
+
+_notebooks: Dict[str, Notebook] = {}
+_notebooks_lock = threading.Lock()
+
+_jobs: Dict[str, Dict] = {}
+_jobs_lock = threading.Lock()
+
+_emitter = EventEmitter()
 
 
 def job(_func=None, job_id: str = None, requires_lock: bool = False):
@@ -41,53 +52,10 @@ def job(_func=None, job_id: str = None, requires_lock: bool = False):
     return threading.Thread(target=wrapper)
 
 
-class MessageEmitter:
-    qs: Dict[str, List[queue.Queue]]
+@app.route("/ping/<notebook_id>")
+def ping(notebook_id):
+    _emitter.emit(notebook_id, EventEmitter.format_sse("ping", "ping"))
 
-    def __init__(self):
-        self.qs = {}
-
-    @staticmethod
-    def format_sse(data: str, event: Optional[str] = None) -> str:
-        msg = f"data: {data}\n\n"
-        if event is not None:
-            msg = f"event: {event}\n{msg}"
-        return msg
-
-    def listen(self, id: str):
-        if id not in self.qs:
-            self.qs[id] = []
-
-        q = queue.Queue(maxsize=5)
-        self.qs[id].append(q)
-        return q
-
-    def emit(self, id: str, message: str):
-        assert id in self.qs
-
-        listeners = self.qs[id]
-
-        for i in reversed(range(len(listeners))):
-            try:
-                listeners[i].put_nowait(message)
-            except queue.Full:
-                del listeners[i]
-
-
-app = Flask(__name__)
-CORS(app)
-
-_notebooks: Dict[str, Notebook] = {}
-_notebooks_lock = threading.Lock()
-
-_jobs: Dict[str, Dict] = {}
-_jobs_lock = threading.Lock()
-
-_emitter = MessageEmitter()
-
-
-@app.route("/ping")
-def ping():
     return jsonify("pong")
 
 
@@ -157,6 +125,22 @@ def get_notebook(notebook_id):
 
     return jsonify(notebook.to_dict())
 
+
+@app.route("/notebooks/<notebook_id>/name")
+def get_name(notebook_id):
+    with _notebooks_lock:
+        notebook = _notebooks[notebook_id]
+        name = notebook.name
+
+    return jsonify(name)
+
+@app.route("/notebooks/<notebook_id>/content")
+def get_content(notebook_id):
+    with _notebooks_lock:
+        notebook = _notebooks[notebook_id]
+        content = notebook.content
+
+    return jsonify(content)
 
 @app.route("/notebooks/<notebook_id>/save", methods=["POST"])
 def save_notebook(notebook_id):
@@ -266,6 +250,14 @@ def get_ideas(notebook_id):
     return jsonify(job_id)
 
 
+@app.route("/notebooks/<notebook_id>/sources")
+def get_sources(notebook_id):
+    with _notebooks_lock:
+        notebook = _notebooks[notebook_id]
+        sources = notebook.sources_to_dict()
+
+    return jsonify(sources)
+
 @app.route("/notebooks/<notebook_id>/sources/add")
 def add_source(notebook_id):
     job_id = uuid()
@@ -305,6 +297,14 @@ def get_source_summary(notebook_id, source_id):
 
     return jsonify(job_id)
 
+
+@app.route("/notebooks/<notebook_id>/live_sources")
+def get_live_sources(notebook_id):
+    with _notebooks_lock:
+        notebook = _notebooks[notebook_id]
+        live_sources = notebook.live_sources_to_dict()
+
+    return jsonify(live_sources)
 
 # TODO: add error handling
 @app.route("/notebooks/<notebook_id>/live_sources/start")
@@ -371,9 +371,28 @@ def get_document(notebook_id, document_id):
     return jsonify(document)
 
 
+@app.route("/notebooks/<notebook_id>/conversation")
+def get_conversation(notebook_id):
+    with _notebooks_lock:
+        notebook = _notebooks[notebook_id]
+        conversation = notebook.conversation_to_dict()
+
+    return jsonify(conversation)
+
+@app.route("/notebooks/<notebook_id>/generations")
+def get_generations(notebook_id):
+    with _notebooks_lock:
+        notebook = _notebooks[notebook_id]
+        generations = notebook.generations_to_dict()
+
+    return jsonify(generations)
+
 @app.route("/jobs/<job_id>")
 def get_job(job_id):
     with _jobs_lock:
+        if job_id not in _jobs:
+            return jsonify(False)
+
         job = _jobs[job_id]
 
     return jsonify(job)

@@ -12,6 +12,7 @@ from typing import Any, List, Optional, Dict, Any
 from dotenv import load_dotenv
 from names_generator import generate_name
 from tkinter import filedialog
+from pydantic import BaseModel, Field
 
 from langchain import LLMMathChain
 from langchain.document_loaders import PagedPDFSplitter, WebBaseLoader, YoutubeLoader
@@ -26,7 +27,7 @@ from langchain.utilities.wolfram_alpha import WolframAlphaAPIWrapper
 from langchain.chains.conversation.memory import ConversationBufferMemory
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-from Kairos.utils import uuid
+from Kairos.utils import uuid, EventEmitter
 
 load_dotenv()
 
@@ -101,11 +102,26 @@ def _load_transcriber():
     _transcriber_model.config.forced_decoder_ids = None
 
 
-# id, type, origin, ids
-Source = Dict[str, Any]
+class Source(BaseModel):
+    id: str
+    type: str
+    origin: str
+    ids: List[str]
 
 
-# TODO: Add timestamp metadata
+class Message(BaseModel):
+    id: str
+    sender: str
+    text: str
+
+
+class Generation(BaseModel):
+    id: str
+    type: str
+    input: str
+    output: str
+
+
 class RecorderThread(threading.Thread):
     notebook: "Notebook"
     to_transcribe_queue: queue.Queue
@@ -250,17 +266,38 @@ class TranscriberThread(threading.Thread):
 
 # TODO: Implement
 class IntelligenceThread(threading.Thread):
-    pass
+    notebook: "Notebook"
+    events: queue.Queue
+
+    _stop: threading.Event
+
+    def __init__(self, notebook: "Notebook", events: queue.Queue):
+        super().__init__()
+
+        self.notebook = notebook
+        self.events = events
+
+        self._stop = threading.Event()
+
+    def stop(self):
+        logging.debug("Stopping transcriber thread")
+        self._stop.set()
+
+    def stopped(self):
+        return self._stop.is_set()
+
+    def run(self):
+        pass
 
 
-# TODO: ypy CRDT
 class Notebook:
     name: str
     path: Optional[str]
     sources: List[Source]
     live_sources: List[Source]
-    conversation: List[Dict]
+    conversation: List[Message]
     content: Any
+    generations: List[Generation]
 
     _transcriber_thread: Optional[TranscriberThread]
     _to_transcribe_queue: Optional[queue.Queue]
@@ -273,6 +310,8 @@ class Notebook:
 
     _conversational_memory: ConversationBufferMemory
     _conversational_agent: ConversationalAgent
+
+    _emitter: EventEmitter
 
     def __init__(
         self, name: str = None, path: Optional[str] = None, verbose: bool = False
@@ -288,6 +327,7 @@ class Notebook:
         self.live_sources = []
         self.conversation = []
         self.content = None
+        self.generations = []
 
         self._faiss = None
         self._tools = [self._search_tool, _calculator_tool, _google_tool, _wolfram_tool]
@@ -321,6 +361,11 @@ class Notebook:
 
         self._live_sources_threads = {}
 
+        self._emitter = EventEmitter()
+
+        self._intelligence_thread = None
+        self._ensure_intelligence()
+
     @classmethod
     def load(cls, path: Optional[str] = None) -> "Notebook":
         logging.debug(f"Loading notebook: {path=}")
@@ -335,10 +380,11 @@ class Notebook:
         _json = json.load(open(_path / "notebook.json", "r"))
 
         notebook = cls(name=_json["name"], path=path)
-        notebook.sources = _json["sources"]
-        notebook.live_sources = _json["live_sources"]
-        notebook.conversation = _json["conversation"]
+        notebook.sources = [Source(**source) for source in _json["sources"]]
+        notebook.live_sources = [Source(**source) for source in _json["live_sources"]]
+        notebook.conversation = [Message(**message) for message in _json["conversation"]]
         notebook.content = _json["content"]
+        notebook.generations = [Generation(**generation) for generation in _json["generations"]]
 
         logging.debug(f"Loading FAISS index: {path=}, {_embeddings=}")
 
@@ -358,6 +404,27 @@ class Notebook:
     @property
     def running_live_sources(self) -> List[str]:
         return list(self._live_sources_threads.keys())
+
+    def _ensure_intelligence(self):
+        if self._intelligence_thread is None:
+            self._intelligence_thread = IntelligenceThread(self, self._emitter)
+            self._intelligence_thread.start()
+
+    def _ensure_transcriber(self):
+        if self._to_transcribe_queue is None:
+            self._to_transcribe_queue = queue.Queue()
+
+        if self._transcriber_thread is None:
+            self._transcriber_thread = TranscriberThread(
+                self, self._to_transcribe_queue
+            )
+            self._transcriber_thread.start()
+
+    def _stop_transcriber(self):
+        if self._transcriber_thread is not None:
+            self._transcriber_thread.stop()
+            self._transcriber_thread = None
+            self._to_transcribe_queue = None
 
     def _search_tool_func(self, query: str) -> str:
         logging.debug(f"Running search tool: {query=}")
@@ -395,11 +462,24 @@ class Notebook:
 
         return {
             "name": self.name,
-            "sources": self.sources,
-            "live_sources": self.live_sources,
-            "conversation": self.conversation,
+            "sources": self.sources_to_dict(),
+            "live_sources": self.live_sources_to_dict(),
+            "conversation": self.conversation_to_dict(),
             "content": self.content,
+            "generations": self.generations_to_dict(),
         }
+
+    def sources_to_dict(self) -> Dict:
+        return [source.dict() for source in self.sources]
+
+    def live_sources_to_dict(self) -> Dict:
+        return [source.dict() for source in self.live_sources]
+
+    def conversation_to_dict(self) -> Dict:
+        return [message.dict() for message in self.conversation]
+
+    def generations_to_dict(self) -> Dict:
+        return [generation.dict() for generation in self.generations]
 
     def save(self, content: Any, path: Optional[str] = None):
         logging.debug(f"Saving notebook: {path=}")
@@ -455,22 +535,6 @@ class Notebook:
             }
         )
         return id
-
-    def _ensure_transcriber(self):
-        if self._to_transcribe_queue is None:
-            self._to_transcribe_queue = queue.Queue()
-
-        if self._transcriber_thread is None:
-            self._transcriber_thread = TranscriberThread(
-                self, self._to_transcribe_queue
-            )
-            self._transcriber_thread.start()
-
-    def _stop_transcriber(self):
-        if self._transcriber_thread is not None:
-            self._transcriber_thread.stop()
-            self._transcriber_thread = None
-            self._to_transcribe_queue = None
 
     # TODO: Add support for different types of live sources
     def start_live_source(self, type: str, origin: str) -> str:
@@ -590,7 +654,18 @@ class Notebook:
         _llm.max_tokens = -1
         summaries = [generation[0].text for generation in result.generations]
 
-        return "\n".join(summaries).strip()
+        response = "\n".join(summaries).strip()
+
+        self.generations.append(
+            {
+                "id": uuid(),
+                "type": "run",
+                "input": "\n".join(texts),
+                "output": response,
+            }
+        )
+
+        return response
 
     # TODO: Consider notebook content as a source.
     def run(self, prompt: str, content: str = None) -> str:
@@ -599,7 +674,18 @@ class Notebook:
         if content is not None:
             self.content = content
 
-        return self._agent.run(prompt).strip()
+        response = self._agent.run(prompt).strip()
+
+        self.generations.append(
+            {
+                "id": uuid(),
+                "type": "run",
+                "input": prompt,
+                "output": response,
+            }
+        )
+
+        return response
 
     # TODO: Consider notebook content as a source.
     def generate(self, prompt: str, content: str = None) -> str:
@@ -624,6 +710,15 @@ class Notebook:
         if type(responses) is not list:
             responses = [responses]
 
+        self.generations.append(
+            {
+                "id": uuid(),
+                "type": "ideas",
+                "input": content,
+                "output": "\n".join(responses),
+            }
+        )
+
         return responses
 
     # TODO: Consider notebook content as a source.
@@ -643,6 +738,15 @@ class Notebook:
             {
                 "sender": "AI",
                 "text": response,
+            }
+        )
+
+        self.generations.append(
+            {
+                "id": uuid(),
+                "type": "chat",
+                "input": prompt,
+                "output": response,
             }
         )
 

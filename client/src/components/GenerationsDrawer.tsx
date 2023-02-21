@@ -5,7 +5,7 @@ import { joinJob, openFile } from '../api';
 
 const { Text } = Typography;
 
-interface SourcesDrawerProps {
+interface GenerationsDrawerProps {
     open: boolean
     setOpen: (open: boolean) => void
 }
@@ -16,7 +16,7 @@ const sourceTypeOptions = [
     { value: 'web', label: 'Web' },
 ]
 
-export const SourcesDrawer: React.FC<SourcesDrawerProps> = ({ open, setOpen }) => {
+export const GenerationsDrawer: React.FC<GenerationsDrawerProps> = ({ open, setOpen }) => {
     const { sources, sourceSummary, addPdf, addYoutube, addWeb } = useContext(NotebookContext)!;
 
     const [addSourceDrawerOpen, setAddSourceDrawerOpen] = useState(false)

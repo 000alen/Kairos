@@ -335,3 +335,77 @@ export const joinJob = async (jobId: string, onProgressCallback: Function, timeo
 
     return job.output;
 }
+
+export const getEvents = (notebookId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `events/${notebookId}`,
+    });
+
+    return new EventSource(url);
+}
+
+export const getSources = async (notebookId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/sources`,
+    });
+
+    const response = await fetch(url);
+    const sources = await response.json();
+
+    return sources;
+}
+
+export const getLiveSources = async (notebookId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/live_sources`,
+    });
+
+    const response = await fetch(url);
+    const sources = await response.json();
+
+    return sources;
+}
+
+export const getConversation = async (notebookId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/conversation`,
+    });
+
+    const response = await fetch(url);
+    const conversation = await response.json();
+
+    return conversation;
+}
+
+export const getGenerations = async (notebookId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/generations`,
+    });
+
+    const response = await fetch(url);
+    const generations = await response.json();
+
+    return generations;
+}
+
+export const getName = async (notebookId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/name`,
+    });
+
+    const response = await fetch(url);
+    const name = await response.json();
+
+    return name;
+}
+
+export const getContent = async (notebookId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/content`,
+    });
+
+    const response = await fetch(url);
+    const content = await response.json();
+
+    return content;
+}

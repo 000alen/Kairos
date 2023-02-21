@@ -6,8 +6,16 @@ export interface Source {
 }
 
 export interface Message {
+    id: string;
     sender: string;
     text: string;
+}
+
+export interface Generation {
+    id: string;
+    type: string;
+    input: string;
+    output: string;
 }
 
 export interface Notebook {
@@ -16,11 +24,19 @@ export interface Notebook {
     live_sources: Source[];
     conversation: Message[];
     content: any
+    generations: Generation[]
 }
 
 export interface INotebookContext {
     id: string;
-    notebook: Notebook;
+    // notebook: Notebook;
+    name: string;
+    sources: Source[];
+    liveSources: Source[];
+    runningLiveSources: string[];
+    conversation: Message[];
+    generations: Generation[];
+
     rename: (name: string) => Promise<void>;
     startLiveSource: (origin: string) => Promise<void>;
     stopLiveSource: (origin: string) => Promise<void>;
