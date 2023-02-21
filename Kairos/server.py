@@ -1,14 +1,13 @@
 import threading
 import queue
 
-from utils import uuid
 from typing import Dict, List, Optional
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from tkinter import filedialog
 
-from notebook import Notebook
-
+from Kairos.notebook import Notebook
+from Kairos.utils import uuid
 
 _notebooks: Dict[str, Notebook] = {}
 _notebooks_lock = threading.Lock()
@@ -235,17 +234,18 @@ def notebook_chat(notebook_id):
         with _jobs_lock:
             _jobs[job_id]["status"] = "finished"
             _jobs[job_id]["output"] = output
-        
+
     prompt = request.args.get("prompt")
 
     job_id = uuid()
     with _jobs_lock:
         _jobs[job_id] = {"status": "running"}
-    
+
     thread = threading.Thread(target=_thread)
     thread.start()
 
     return jsonify(job_id)
+
 
 @app.route("/notebooks/<notebook_id>/ideas", methods=["POST"])
 def get_ideas(notebook_id):

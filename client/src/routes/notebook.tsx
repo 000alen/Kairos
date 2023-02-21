@@ -36,11 +36,14 @@ export const Notebook = () => {
   const [ready, setReady] = useState<boolean>(false);
   const [notebook, setNotebook] = useState<INotebook | null>(null);
 
+  const [version, setVersion] = useState<number>(0);
+
   const [_name, _setName] = useState<string>('');
 
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
   const [liveSourcesDrawerOpen, setLiveSourcesDrawerOpen] = useState(false);
+
 
   const initialize = useCallback(async () => {
     const notebook = await getNotebook(id!);
@@ -52,6 +55,15 @@ export const Notebook = () => {
   }, [id, setNotebook, setReady, editor])
 
   useEffect(() => { initialize() }, [initialize])
+
+  const reload = useCallback(async () => {
+    const notebook = await getNotebook(id!);
+    setNotebook(notebook);
+  }, [id, setNotebook])
+
+  useEffect(() => { reload() }, [version, reload])
+
+  const bump = useCallback(() => setVersion((p) => p + 1), [setVersion])
 
   useEffect(() => {
     const sse = new EventSource('http://127.0.0.1:5000/events/test');
@@ -69,6 +81,7 @@ export const Notebook = () => {
     console.log(name);
     const response = await renameNotebook(id!, name);
     // console.log(response);
+    bump()
   }, [id])
 
   const _rename = useCallback(async () => {
@@ -78,11 +91,14 @@ export const Notebook = () => {
   const startLiveSource = useCallback(async (origin: string) => {
     const response = await _startLiveSource(id!, "sound", origin);
     console.log(response);
+    bump()
+    return response;
   }, [id])
 
   const stopLiveSource = useCallback(async (origin: string) => {
     const response = await _stopLiveSource(id!, origin);
     console.log(response);
+    bump()
   }, [id])
 
   const run = useCallback(async (prompt: string) => {
@@ -111,6 +127,7 @@ export const Notebook = () => {
   const chat = useCallback(async (prompt: string) => {
     const response = await joinJob(await notebookChat(id!, prompt), () => { });
     console.log(response);
+    bump()
     return response;
   }, [id])
 
@@ -120,6 +137,7 @@ export const Notebook = () => {
     responses.forEach((response) => {
       editor!.chain().focus().insertContent(`${response}\n`).run();
     });
+    bump()
   }, [id, notebook, editor])
 
   const onAdd = useCallback(async (type: string, origin: string) => {
@@ -130,33 +148,44 @@ export const Notebook = () => {
   const addPdf = useCallback(async (origin: string) => {
     const response = await onAdd("pdf", origin);
     console.log(response);
+    bump()
   }, [onAdd])
 
   const addYoutube = useCallback(async (origin: string) => {
     const response = await onAdd("youtube", origin);
     console.log(response);
+
+    bump()
   }, [onAdd])
 
   const addWeb = useCallback(async (origin: string) => {
     const response = await onAdd("web", origin);
     console.log(response);
+
+    bump()
   }, [onAdd])
 
   const sourceSummary = useCallback(async (sourceId: string) => {
     const response = await joinJob(await getSourceSummary(id!, sourceId), () => { });
     console.log(response);
     editor!.chain().focus().insertContent(response).run();
+
+    bump()
   }, [id, editor])
 
   const liveSourceSummary = useCallback(async (sourceId: string) => {
     const response = await joinJob(await getSourceSummary(id!, sourceId), () => { });
     console.log(response);
     editor!.chain().focus().insertContent(response).run();
+
+    bump()
   }, [id, editor])
 
   const save = useCallback(async () => {
     const content = editor!.getJSON();
     await joinJob(await saveNotebook(id!, content), () => { });
+
+    bump()
   }, [id, editor]);
 
   const context = useMemo(() => ({

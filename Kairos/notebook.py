@@ -7,7 +7,6 @@ import soundcard
 import logging
 import itertools
 
-from utils import uuid
 from pathlib import Path
 from typing import Any, List, Optional, Dict, Any
 from dotenv import load_dotenv
@@ -26,6 +25,8 @@ from langchain.serpapi import SerpAPIWrapper
 from langchain.utilities.wolfram_alpha import WolframAlphaAPIWrapper
 from langchain.chains.conversation.memory import ConversationBufferMemory
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
+
+from Kairos.utils import uuid
 
 load_dotenv()
 
