@@ -115,11 +115,23 @@ class Message(BaseModel):
     text: str
 
 
+class Action(BaseModel):
+    tool: str
+    tool_input: str
+    log: str
+
+
+class Step(BaseModel):
+    action: Action
+    result: str
+
+
 class Generation(BaseModel):
     id: str
     type: str
     input: str
     output: str
+    intermediate_steps: List[Step]
 
 
 class RecorderThread(threading.Thread):
@@ -341,6 +353,7 @@ class Notebook:
             agent=_AGENT,
             verbose=verbose,
         )
+        self._agent.return_intermediate_steps = True
 
         logging.debug(
             f"Initializing conversational agent: {_llm=} {self._tools=} {_CONVERSATIONAL_AGENT=} {verbose=}"
@@ -387,7 +400,17 @@ class Notebook:
         ]
         notebook.content = _json["content"]
         notebook.generations = [
-            Generation(**generation) for generation in _json["generations"]
+            Generation(
+                id=generation["id"],
+                type=generation["type"],
+                input=generation["input"],
+                output=generation["output"],
+                intermediate_steps=[
+                    Step(action=Action(**step["action"]), result=step["result"])
+                    for step in generation["intermediate_steps"]
+                ],
+            )
+            for generation in _json["generations"]
         ]
 
         logging.debug(f"Loading FAISS index: {path=}, {_embeddings=}")
@@ -671,6 +694,23 @@ class Notebook:
 
         return response
 
+    def _format_generation(
+        self, type: str, response: Dict, id: Optional[str] = None
+    ) -> Generation:
+        if id is None:
+            id = uuid()
+
+        return Generation(
+            id=id,
+            type=type,
+            input=response["input"].strip(),
+            output=response["output"].strip(),
+            intermediate_steps=[
+                Step(action=Action(**action._asdict()), result=result)
+                for action, result in response["intermediate_steps"]
+            ],
+        )
+
     # TODO: Consider notebook content as a source.
     def run(self, prompt: str, content: str = None) -> str:
         logging.debug(f"Running notebook: {prompt=}")
@@ -678,18 +718,11 @@ class Notebook:
         if content is not None:
             self.content = content
 
-        response = self._agent.run(prompt).strip()
+        response = self._agent(prompt)
+        generation = self._format_generation("run", response)
+        self.generations.append(generation)
 
-        self.generations.append(
-            Generation(
-                id=uuid(),
-                type="run",
-                input=prompt,
-                output=response,
-            )
-        )
-
-        return response
+        return generation.output
 
     # TODO: Consider notebook content as a source.
     def generate(self, prompt: str, content: str = None) -> str:
@@ -709,7 +742,9 @@ class Notebook:
             f'Identify one possible idea you could write about to keep expanding this document: """{text}"""'
             for text in texts
         ]
+        self._agent.return_intermediate_steps = False
         responses = self._agent.run(prompts)
+        self._agent.return_intermediate_steps = True
 
         if type(responses) is not list:
             responses = [responses]

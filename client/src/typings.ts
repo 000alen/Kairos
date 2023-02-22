@@ -11,11 +11,23 @@ export interface Message {
     text: string;
 }
 
+export interface Action {
+    tool: string;
+    tool_input: string;
+    log: string;
+}
+
+export interface Step {
+    action: Action;
+    result: string;
+}
+
 export interface Generation {
     id: string;
     type: string;
     input: string;
     output: string;
+    intermediate_steps: Step[];
 }
 
 export interface Notebook {
