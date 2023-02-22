@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useState } from 'react'
 import { Button, Drawer, Input, Space } from 'antd'
 import { SendOutlined } from '@ant-design/icons'
-import { NotebookContext } from '../routes/notebook'
+import { NotebookContext } from '../../routes/notebook'
 
 interface ChatDrawerProps {
   open: boolean
@@ -18,7 +18,7 @@ export const ChatDrawer: React.FC<ChatDrawerProps> = ({ open, setOpen }) => {
   }, [chat, prompt])
 
   return (
-    <Drawer title="Chat" width={520} closable={false} onClose={() => setOpen(false)} open={open}>
+    <Drawer title="Chat" closable={false} onClose={() => setOpen(false)} open={open}>
       <Space>
         <Input placeholder='Prompt' value={prompt} onChange={(e) => setPrompt(e.target.value)} />
         <Button shape="circle" disabled={!prompt} icon={<SendOutlined />} onClick={onChat} />

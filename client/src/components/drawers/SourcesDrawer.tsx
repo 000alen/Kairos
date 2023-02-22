@@ -1,11 +1,11 @@
 import React, { useCallback, useContext, useState } from 'react'
 import { Button, Card, Drawer, Input, Select, Space, Typography } from 'antd'
-import { NotebookContext } from '../routes/notebook'
-import { joinJob, openFile } from '../api';
+import { NotebookContext } from '../../routes/notebook'
+import { joinJob, openFile } from '../../api';
 
 const { Text } = Typography;
 
-interface GenerationsDrawerProps {
+interface SourcesDrawerProps {
     open: boolean
     setOpen: (open: boolean) => void
 }
@@ -16,8 +16,8 @@ const sourceTypeOptions = [
     { value: 'web', label: 'Web' },
 ]
 
-export const GenerationsDrawer: React.FC<GenerationsDrawerProps> = ({ open, setOpen }) => {
-    const { sources, sourceSummary, addPdf, addYoutube, addWeb } = useContext(NotebookContext)!;
+export const SourcesDrawer: React.FC<SourcesDrawerProps> = ({ open, setOpen }) => {
+    const { id, sources, sourceSummary, addSource } = useContext(NotebookContext)!;
 
     const [addSourceDrawerOpen, setAddSourceDrawerOpen] = useState(false)
     const [selectedSourceType, setSelectedSourceType] = useState('pdf')
@@ -25,30 +25,21 @@ export const GenerationsDrawer: React.FC<GenerationsDrawerProps> = ({ open, setO
 
     const add = useCallback(
         async () => {
-            switch (selectedSourceType) {
-                case 'pdf':
-                    return await addPdf(selectedSourceOrigin)
-                case 'youtube':
-                    return await addYoutube(selectedSourceOrigin)
-                case 'web':
-                    return await addWeb(selectedSourceOrigin)
-            }
+            addSource(selectedSourceType, selectedSourceOrigin)
         },
         [
             selectedSourceType,
             selectedSourceOrigin,
-            addPdf,
-            addYoutube,
-            addWeb,
+            addSource,
         ]
     )
 
     const pick = useCallback(
         async () => {
-            const path = await joinJob(await openFile("file"), () => { });
-            setSelectedSourceOrigin(path);
+            const { error, output } = await joinJob<string>(id, await openFile(id, "file"), () => { });
+            setSelectedSourceOrigin(output!);
         }, [
-        setSelectedSourceOrigin,
+        setSelectedSourceOrigin, id
     ]);
 
     return (

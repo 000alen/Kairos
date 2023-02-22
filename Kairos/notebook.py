@@ -382,9 +382,13 @@ class Notebook:
         notebook = cls(name=_json["name"], path=path)
         notebook.sources = [Source(**source) for source in _json["sources"]]
         notebook.live_sources = [Source(**source) for source in _json["live_sources"]]
-        notebook.conversation = [Message(**message) for message in _json["conversation"]]
+        notebook.conversation = [
+            Message(**message) for message in _json["conversation"]
+        ]
         notebook.content = _json["content"]
-        notebook.generations = [Generation(**generation) for generation in _json["generations"]]
+        notebook.generations = [
+            Generation(**generation) for generation in _json["generations"]
+        ]
 
         logging.debug(f"Loading FAISS index: {path=}, {_embeddings=}")
 
@@ -527,12 +531,12 @@ class Notebook:
         ids = self._add_docs(docs)
         id = uuid()
         self.sources.append(
-            {
-                "id": id,
-                "type": type,
-                "origin": origin,
-                "ids": ids,
-            }
+            Source(
+                id=id,
+                type=type,
+                origin=origin,
+                ids=ids,
+            )
         )
         return id
 
@@ -555,12 +559,12 @@ class Notebook:
 
         if not self.has_live_source(origin):
             self.live_sources.append(
-                {
-                    "id": id,
-                    "type": type,
-                    "origin": origin,
-                    "ids": [],
-                }
+                Source(
+                    id=id,
+                    type=type,
+                    origin=origin,
+                    ids=[],
+                )
             )
 
         self._ensure_transcriber()
@@ -590,25 +594,25 @@ class Notebook:
 
     def get_source(self, id: str) -> Source:
         try:
-            return next(source for source in self.sources if source["id"] == id)
+            return next(source for source in self.sources if source.id == id)
         except StopIteration:
             return None
 
     def get_live_source(self, id: str) -> Source:
         try:
-            return next(source for source in self.live_sources if source["id"] == id)
+            return next(source for source in self.live_sources if source.id == id)
         except StopIteration:
             return None
 
     def has_live_source(self, origin: str) -> bool:
         try:
-            return any(source["origin"] == origin for source in self.live_sources)
+            return any(source.origin == origin for source in self.live_sources)
         except StopIteration:
             return False
 
     def get_live_source_id(self, origin: str) -> str:
         return next(
-            source["id"] for source in self.live_sources if source["origin"] == origin
+            source["id"] for source in self.live_sources if source.origin == origin
         )
 
     def add_ids_to_live_source(self, id: str, ids: List[str]):
@@ -657,12 +661,12 @@ class Notebook:
         response = "\n".join(summaries).strip()
 
         self.generations.append(
-            {
-                "id": uuid(),
-                "type": "run",
-                "input": "\n".join(texts),
-                "output": response,
-            }
+            Generation(
+                id=uuid(),
+                type="run",
+                input="\n".join(texts),
+                output=response,
+            )
         )
 
         return response
@@ -677,12 +681,12 @@ class Notebook:
         response = self._agent.run(prompt).strip()
 
         self.generations.append(
-            {
-                "id": uuid(),
-                "type": "run",
-                "input": prompt,
-                "output": response,
-            }
+            Generation(
+                id=uuid(),
+                type="run",
+                input=prompt,
+                output=response,
+            )
         )
 
         return response
@@ -711,12 +715,12 @@ class Notebook:
             responses = [responses]
 
         self.generations.append(
-            {
-                "id": uuid(),
-                "type": "ideas",
-                "input": content,
-                "output": "\n".join(responses),
-            }
+            Generation(
+                id=uuid(),
+                type="ideas",
+                input=content,
+                output="\n".join(responses),
+            )
         )
 
         return responses
@@ -726,28 +730,30 @@ class Notebook:
         logging.debug(f"Running chat: {prompt=}")
 
         self.conversation.append(
-            {
-                "sender": "Human",
-                "text": prompt,
-            }
+            Message(
+                id=uuid(),
+                sender="Human",
+                text=prompt,
+            )
         )
 
         response = self._conversational_agent.run(prompt).strip()
 
         self.conversation.append(
-            {
-                "sender": "AI",
-                "text": response,
-            }
+            Message(
+                id=uuid(),
+                sender="AI",
+                text=response,
+            )
         )
 
         self.generations.append(
-            {
-                "id": uuid(),
-                "type": "chat",
-                "input": prompt,
-                "output": response,
-            }
+            Generation(
+                id=uuid(),
+                type="chat",
+                input=prompt,
+                output=response,
+            )
         )
 
         return response

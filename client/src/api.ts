@@ -1,11 +1,13 @@
 import { buildUrl } from "build-url-ts"
+import { Job } from "./typings";
 
 const API_URL = 'http://127.0.0.1:5000';
 
-export const openFile = async (type?: string) => {
+export const openFile = async (notebookId: string, type?: string) => {
     const url = buildUrl(API_URL, {
         path: 'files/open',
         queryParams: {
+            notebook_id: notebookId,
             type
         }
     });
@@ -16,10 +18,11 @@ export const openFile = async (type?: string) => {
     return path;
 }
 
-export const saveFile = async (type?: string) => {
+export const saveFile = async (notebookId: string, type?: string) => {
     const url = buildUrl(API_URL, {
         path: 'files/save',
         queryParams: {
+            notebook_id: notebookId,
             type
         }
     });
@@ -310,9 +313,20 @@ export const getDocument = async (notebookId: string, documentId: string) => {
     return document;
 }
 
-export const getJob = async (jobId: string) => {
+export const getJobs = async (notebookId: string) => {
     const url = buildUrl(API_URL, {
-        path: `jobs/${jobId}`,
+        path: `notebooks/${notebookId}/jobs`,
+    });
+
+    const response = await fetch(url);
+    const jobs = await response.json();
+
+    return jobs;
+}
+
+export const getJob = async (notebookId: string, jobId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/jobs/${jobId}`,
     });
 
     const response = await fetch(url);
@@ -321,19 +335,25 @@ export const getJob = async (jobId: string) => {
     return job;
 }
 
+
 const sleep = (time: number) => new Promise(resolve => setTimeout(resolve, time));
 
 
-export const joinJob = async (jobId: string, onProgressCallback: Function, timeout: number = 250) => {
-    let job = await getJob(jobId);
+export const joinJob = async <T,>(
+    notebookId: string,
+    jobId: string,
+    onProgressCallback: Function,
+    timeout: number = 250
+): Promise<Job<T>> => {
+    let job = await getJob(notebookId, jobId);
 
     while (job.status === 'running') {
         onProgressCallback(job);
         await sleep(timeout);
-        job = await getJob(jobId);
+        job = await getJob(notebookId, jobId);
     }
 
-    return job.output;
+    return job;
 }
 
 export const getEvents = (notebookId: string) => {

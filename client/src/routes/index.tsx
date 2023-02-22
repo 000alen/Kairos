@@ -20,8 +20,9 @@ export const Index = () => {
     }, [navigateToNotebook])
 
     const onLoadNotebook = useCallback(async () => {
-        const notebookId = await joinJob(await loadNotebook(), () => { });
-        navigateToNotebook(notebookId);
+        const jobId = await loadNotebook();
+        const { error, output } = await joinJob<string>(jobId, jobId, () => { });
+        navigateToNotebook(output!);
     }, [navigateToNotebook])
 
     return (

@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react'
 import { Button, Card, Drawer, Input, Space, Typography } from 'antd'
-import { NotebookContext } from '../routes/notebook'
+import { NotebookContext } from '../../routes/notebook'
 
 const { Text } = Typography;
 

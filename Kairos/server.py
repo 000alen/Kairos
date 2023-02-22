@@ -1,7 +1,9 @@
 import threading
 import functools
 
-from typing import Dict
+from collections import OrderedDict
+from typing import Dict, Optional
+from pydantic import BaseModel
 from flask import Flask, request, jsonify, Response
 from flask_cors import CORS
 from tkinter import filedialog
@@ -16,17 +18,31 @@ CORS(app)
 _notebooks: Dict[str, Notebook] = {}
 _notebooks_lock = threading.Lock()
 
-_jobs: Dict[str, Dict] = {}
+_jobs: Dict[str, OrderedDict[str, "Job"]] = {}
 _jobs_lock = threading.Lock()
 
 _emitter = EventEmitter()
 
 
-def job(_func=None, job_id: str = None, requires_lock: bool = False):
+class Job(BaseModel):
+    id: str
+    status: str
+    error: bool
+    output: Optional[str]
+
+
+_future_job = Job(id="future", status="running", error=False, output=None)
+
+
+def job(
+    _func=None, notebook_id: str = None, job_id: str = None, requires_lock: bool = False
+):
     @functools.wraps(_func)
     def wrapper(*args, **kwargs):
         with _jobs_lock:
-            _jobs[job_id] = {"status": "running"}
+            _jobs[notebook_id][job_id] = Job(
+                id=job_id, status="running", error=False, output=None
+            )
 
         if requires_lock:
             _notebooks_lock.acquire()
@@ -42,12 +58,18 @@ def job(_func=None, job_id: str = None, requires_lock: bool = False):
             _notebooks_lock.release()
 
         with _jobs_lock:
-            _jobs[job_id]["status"] = "finished"
-            _jobs[job_id]["error"] = error
-            _jobs[job_id]["output"] = output
+            _jobs[notebook_id][job_id].status = "finished"
+            _jobs[notebook_id][job_id].error = error
+            _jobs[notebook_id][job_id].output = output
+
+    if notebook_id not in _jobs:
+        with _jobs_lock:
+            _jobs[notebook_id] = OrderedDict()
 
     if _func is None:
-        return lambda _func: job(_func, job_id=job_id, requires_lock=requires_lock)
+        return lambda _func: job(
+            _func, notebook_id=notebook_id, job_id=job_id, requires_lock=requires_lock
+        )
 
     return threading.Thread(target=wrapper)
 
@@ -62,9 +84,10 @@ def ping(notebook_id):
 @app.route("/files/open")
 def open_file():
     job_id = uuid()
+    notebook_id = request.args.get("notebook_id")
     type = request.args.get("type")
 
-    @job(job_id=job_id)
+    @job(notebook_id=notebook_id, job_id=job_id)
     def _thread():
         return (
             filedialog.askopenfilename()
@@ -80,9 +103,10 @@ def open_file():
 @app.route("/files/save", methods=["POST"])
 def save_file():
     job_id = uuid()
+    notebook_id = request.args.get("notebook_id")
     type = request.args.get("type")
 
-    @job(job_id=job_id)
+    @job(notebook_id=notebook_id, job_id=job_id)
     def _thread():
         return (
             filedialog.asksaveasfilename()
@@ -134,6 +158,7 @@ def get_name(notebook_id):
 
     return jsonify(name)
 
+
 @app.route("/notebooks/<notebook_id>/content")
 def get_content(notebook_id):
     with _notebooks_lock:
@@ -142,13 +167,14 @@ def get_content(notebook_id):
 
     return jsonify(content)
 
+
 @app.route("/notebooks/<notebook_id>/save", methods=["POST"])
 def save_notebook(notebook_id):
     job_id = uuid()
     path = request.args.get("path")
     content = request.get_json()
 
-    @job(job_id=job_id, requires_lock=True)
+    @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
         notebook.save(content, path=path)
@@ -163,7 +189,7 @@ def load_notebook():
     job_id = uuid()
     path = request.args.get("path")
 
-    @job(job_id=job_id, requires_lock=True)
+    @job(notebook_id=job_id, job_id=job_id, requires_lock=True)
     def _thread():
         _notebooks[job_id] = Notebook.load(path)
 
@@ -178,7 +204,7 @@ def notebook_run(notebook_id):
     prompt = request.args.get("prompt")
     content = request.get_json()
 
-    @job(job_id=job_id, requires_lock=True)
+    @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
         return notebook.run(prompt, content=content)
@@ -194,7 +220,7 @@ def notebook_generate(notebook_id):
     prompt = request.args.get("prompt")
     content = request.get_json()
 
-    @job(job_id=job_id, requires_lock=True)
+    @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
         return notebook.generate(prompt, content=content)
@@ -211,7 +237,7 @@ def notebook_edit(notebook_id):
     text = request.args.get("text")
     content = request.get_json()
 
-    @job(job_id=job_id, requires_lock=True)
+    @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
         return notebook.edit(prompt, text, content=content)
@@ -226,7 +252,7 @@ def notebook_chat(notebook_id):
     job_id = uuid()
     prompt = request.args.get("prompt")
 
-    @job(job_id=job_id, requires_lock=True)
+    @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
         return notebook.chat(prompt)
@@ -241,6 +267,7 @@ def get_ideas(notebook_id):
     job_id = uuid()
     content = request.get_json()
 
+    @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
         return notebook.ideas(content=content)
@@ -258,13 +285,14 @@ def get_sources(notebook_id):
 
     return jsonify(sources)
 
+
 @app.route("/notebooks/<notebook_id>/sources/add")
 def add_source(notebook_id):
     job_id = uuid()
     type = request.args.get("type")
     origin = request.args.get("origin")
 
-    @job(job_id=job_id, requires_lock=True)
+    @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
         return notebook.add_source(type, origin)
@@ -278,7 +306,7 @@ def add_source(notebook_id):
 def get_source(notebook_id, source_id):
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
-        source = notebook.get_source(source_id)
+        source = notebook.get_source(source_id).dict()
 
     return jsonify(source)
 
@@ -288,7 +316,7 @@ def get_source_summary(notebook_id, source_id):
     job_id = uuid()
     last_k = request.args.get("last_k")
 
-    @job(job_id=job_id, requires_lock=True)
+    @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
         return notebook.summary(source_id, last_k=last_k)
@@ -305,6 +333,7 @@ def get_live_sources(notebook_id):
         live_sources = notebook.live_sources_to_dict()
 
     return jsonify(live_sources)
+
 
 # TODO: add error handling
 @app.route("/notebooks/<notebook_id>/live_sources/start")
@@ -333,7 +362,7 @@ def get_running_live_sources(notebook_id):
 def get_live_source(notebook_id, source_id):
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
-        live_source = notebook.get_live_source(source_id)
+        live_source = notebook.get_live_source(source_id).dict()
 
     return jsonify(live_source)
 
@@ -343,6 +372,7 @@ def get_live_source_summary(notebook_id, source_id):
     job_id = uuid()
     last_k = request.args.get("last_k")
 
+    @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
         return notebook.summary(source_id, last_k=last_k, live=True)
@@ -366,7 +396,7 @@ def stop_live_source(notebook_id, source_id):
 def get_document(notebook_id, document_id):
     with _notebooks_lock:
         notebook = _notebooks[notebook_id]
-        document = notebook.get_doc(document_id)
+        document = notebook.get_doc(document_id).dict()
 
     return jsonify(document)
 
@@ -379,6 +409,7 @@ def get_conversation(notebook_id):
 
     return jsonify(conversation)
 
+
 @app.route("/notebooks/<notebook_id>/generations")
 def get_generations(notebook_id):
     with _notebooks_lock:
@@ -387,13 +418,27 @@ def get_generations(notebook_id):
 
     return jsonify(generations)
 
-@app.route("/jobs/<job_id>")
-def get_job(job_id):
-    with _jobs_lock:
-        if job_id not in _jobs:
-            return jsonify(False)
 
-        job = _jobs[job_id]
+@app.route("/notebooks/<notebook_id>/jobs")
+def get_jobs(notebook_id):
+    with _jobs_lock:
+        if notebook_id not in _jobs:
+            _jobs[notebook_id] = OrderedDict()
+
+        jobs = _jobs[notebook_id]
+        jobs = [job.dict() for job in jobs.values()]
+
+    return jsonify(jobs)
+
+
+@app.route("/notebooks/<notebook_id>/jobs/<job_id>")
+def get_job(notebook_id, job_id):
+    with _jobs_lock:
+        if job_id not in _jobs[notebook_id]:
+            return jsonify(_future_job.dict())
+
+        job = _jobs[notebook_id][job_id]
+        job = job.dict()
 
     return jsonify(job)
 

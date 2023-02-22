@@ -27,28 +27,34 @@ export interface Notebook {
     generations: Generation[]
 }
 
+export interface Job<T = any> {
+    id: string;
+    status: string;
+    error: boolean;
+    output?: T;
+}
+
 export interface INotebookContext {
     id: string;
-    // notebook: Notebook;
     name: string;
     sources: Source[];
     liveSources: Source[];
     runningLiveSources: string[];
     conversation: Message[];
     generations: Generation[];
+    jobs: Job[];
 
     rename: (name: string) => Promise<void>;
     startLiveSource: (origin: string) => Promise<void>;
     stopLiveSource: (origin: string) => Promise<void>;
     run: (prompt: string) => Promise<void>;
     generate: (prompt: string) => Promise<void>;
-    chat: (prompt: string) => Promise<string>;
+    chat: (prompt: string) => Promise<string | void>;
     edit: (text: string, prompt: string) => Promise<void>;
     ideas: () => Promise<void>;
-    addPdf: (origin: string) => Promise<void>;
-    addYoutube: (origin: string) => Promise<void>;
-    addWeb: (origin: string) => Promise<void>;
+    addSource: (type: string, origin: string) => Promise<void>;
     sourceSummary: (sourceId: string) => Promise<void>;
     liveSourceSummary: (sourceId: string) => Promise<void>;
     save: () => Promise<void>;
+    insert: (text: string) => Promise<void>;
 }
