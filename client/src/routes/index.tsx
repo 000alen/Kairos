@@ -22,6 +22,9 @@ export const Index = () => {
     const onLoadNotebook = useCallback(async () => {
         const jobId = await loadNotebook();
         const { error, output } = await joinJob<string>(jobId, jobId, () => { });
+
+        if (error) return console.error("error", output);
+
         navigateToNotebook(output!);
     }, [navigateToNotebook])
 

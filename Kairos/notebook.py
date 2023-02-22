@@ -12,7 +12,7 @@ from typing import Any, List, Optional, Dict, Any
 from dotenv import load_dotenv
 from names_generator import generate_name
 from tkinter import filedialog
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from langchain import LLMMathChain
 from langchain.document_loaders import PagedPDFSplitter, WebBaseLoader, YoutubeLoader

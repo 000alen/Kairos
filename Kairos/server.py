@@ -48,11 +48,11 @@ def job(
             _notebooks_lock.acquire()
 
         error = False
-        try:
-            output = _func(*args, **kwargs)
-        except Exception as e:
-            error = True
-            output = None
+        # try:
+        output = _func(*args, **kwargs)
+        # except Exception as e:
+        #    error = True
+        #    output = None
 
         if requires_lock:
             _notebooks_lock.release()
@@ -192,6 +192,7 @@ def load_notebook():
     @job(notebook_id=job_id, job_id=job_id, requires_lock=True)
     def _thread():
         _notebooks[job_id] = Notebook.load(path)
+        return job_id
 
     _thread.start()
 
