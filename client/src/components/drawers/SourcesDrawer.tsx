@@ -1,7 +1,7 @@
-import React, { useCallback, useContext, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useState } from 'react'
 import { Button, Card, Drawer, Input, Select, Space, Typography } from 'antd'
 import { NotebookContext } from '../../routes/notebook'
-import { joinJob, openFile } from '../../api';
+import { getSourceContent, joinJob, openFile } from '../../api';
 
 const { Text } = Typography;
 
@@ -23,6 +23,10 @@ export const SourcesDrawer: React.FC<SourcesDrawerProps> = ({ open, setOpen }) =
     const [selectedSourceType, setSelectedSourceType] = useState('pdf')
     const [selectedSourceOrigin, setSelectedSourceOrigin] = useState('')
 
+    const [sourceContentDrawerOpen, setSourceContentDrawerOpen] = useState(false)
+    const [selectedSourceId, setSelectedSourceId] = useState<string | null>(null)
+    const [selectedSourceContent, setSelectedSourceContent] = useState<string | null>(null)
+
     const add = useCallback(
         async () => {
             addSource(selectedSourceType, selectedSourceOrigin)
@@ -42,6 +46,14 @@ export const SourcesDrawer: React.FC<SourcesDrawerProps> = ({ open, setOpen }) =
         setSelectedSourceOrigin, id
     ]);
 
+    useEffect(() => {
+        if (!selectedSourceId) return;
+        (async () => {
+            const content = await getSourceContent(id, selectedSourceId);
+            setSelectedSourceContent(content);
+        })();
+    }, [id, selectedSourceId, setSelectedSourceContent])
+
     return (
         <Drawer title="Sources" closable={false} onClose={() => setOpen(false)} open={open}>
             <Space
@@ -58,6 +70,10 @@ export const SourcesDrawer: React.FC<SourcesDrawerProps> = ({ open, setOpen }) =
                         extra={<Button type='link' onClick={() => sourceSummary(source.id)}>Summary</Button>}
                     >
                         <Text>{source.origin}</Text>
+                        <Button onClick={() => {
+                            setSelectedSourceId(source.id)
+                            setSourceContentDrawerOpen(true)
+                        }}>Content</Button>
                     </Card>
                 ))}
             </Space>
@@ -98,6 +114,13 @@ export const SourcesDrawer: React.FC<SourcesDrawerProps> = ({ open, setOpen }) =
                         Add
                     </Button>
                 </Space>
+            </Drawer>
+
+            <Drawer title="Content" closable={false}
+                onClose={() => setSourceContentDrawerOpen(false)}
+                open={sourceContentDrawerOpen}
+            >
+                {selectedSourceContent && <Text>{selectedSourceContent}</Text>}
             </Drawer>
         </Drawer >
     )

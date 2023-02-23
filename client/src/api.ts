@@ -226,6 +226,20 @@ export const getSource = async (notebookId: string, sourceId: string) => {
     return source;
 }
 
+export const getSourceContent = async (notebookId: string, sourceId: string, lastK?: number) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/sources/${sourceId}/content`,
+        queryParams: {
+            last_K: lastK
+        }
+    });
+
+    const response = await fetch(url);
+    const jobId = await response.json();
+
+    return jobId;
+}
+
 export const getSourceSummary = async (notebookId: string, sourceId: string, lastK?: number) => {
     const url = buildUrl(API_URL, {
         path: `notebooks/${notebookId}/sources/${sourceId}/summary`,

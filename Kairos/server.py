@@ -312,6 +312,15 @@ def get_source(notebook_id, source_id):
     return jsonify(source)
 
 
+@app.route("/notebooks/<notebook_id>/sources/<source_id>/content")
+def get_source_content(notebook_id, source_id):
+    with _notebooks_lock:
+        notebook = _notebooks[notebook_id]
+        content = notebook.get_content(source_id)
+
+    return jsonify(content)
+
+
 @app.route("/notebooks/<notebook_id>/sources/<source_id>/summary")
 def get_source_summary(notebook_id, source_id):
     job_id = uuid()
@@ -320,7 +329,7 @@ def get_source_summary(notebook_id, source_id):
     @job(notebook_id=notebook_id, job_id=job_id, requires_lock=True)
     def _thread():
         notebook = _notebooks[notebook_id]
-        return notebook.summary(source_id, last_k=last_k)
+        return notebook.summary(source_id, last_k=last_k, live=True)
 
     _thread.start()
 

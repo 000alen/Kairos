@@ -1,13 +1,13 @@
 import React, { useCallback, useContext, useState } from 'react'
 import { Editor, EditorContent, FloatingMenu, BubbleMenu } from '@tiptap/react'
-import { Button, Input, Space, Tooltip } from 'antd'
+import { Avatar, Button, Card, Input, Popconfirm, Skeleton, Space, Tooltip } from 'antd'
 import { NotebookContext } from '../routes/notebook'
-import { BoldOutlined, BulbOutlined, ItalicOutlined } from '@ant-design/icons'
+import { BoldOutlined, BulbOutlined, EditOutlined, EllipsisOutlined, ItalicOutlined, SettingOutlined } from '@ant-design/icons'
+import { PopupMenu } from '../popup-menu/PopupMenu'
 
 export interface WithEditorProps {
     editor: Editor
 }
-
 
 export const FMenu: React.FC<WithEditorProps> = ({ editor }) => {
     const { generate, ideas } = useContext(NotebookContext)!;
@@ -126,9 +126,26 @@ export const BMenu: React.FC<WithEditorProps> = ({ editor }) => {
 export const Tiptap: React.FC<WithEditorProps> = ({ editor }) => {
     return (
         <div>
+            <FMenu editor={editor} />
+
             <BMenu editor={editor} />
 
-            <FMenu editor={editor} />
+            <PopupMenu editor={editor}>
+                <Card
+                    style={{ width: 300 }}
+                    actions={[
+                        <SettingOutlined key="setting" />,
+                        <EditOutlined key="edit" />,
+                    ]}
+                >
+                    <Skeleton loading={true} active>
+                        <Card.Meta
+                            title="Card title"
+                            description="This is the description"
+                        />
+                    </Skeleton>
+                </Card>
+            </PopupMenu>
 
             <EditorContent editor={editor} />
         </div>

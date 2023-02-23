@@ -77,9 +77,9 @@ _wolfram_tool = Tool(
     func=WolframAlphaAPIWrapper().run,
 )
 
-_re_combine_whitespace = re.compile(r"\s+")
+_RE_COMBINE_WHITESPACE = re.compile(r"\s+")
 
-_sound_sample_rate = 16000
+_SOUND_SAMPLE_RATE = 16000
 
 _sound_sample_length = 15
 
@@ -131,7 +131,7 @@ class Generation(BaseModel):
     type: str
     input: str
     output: str
-    intermediate_steps: List[Step]
+    intermediate_steps: Optional[List[Step]]
 
 
 class RecorderThread(threading.Thread):
@@ -140,6 +140,12 @@ class RecorderThread(threading.Thread):
     type: str
     origin: str
     offset: int
+
+    _chunk_size: int
+    _chunk_overlap: int
+    _temperature: float
+    _sound_sample_length: int
+    _k: int
 
     _stop: threading.Event
     _loopback: Any
@@ -182,7 +188,7 @@ class RecorderThread(threading.Thread):
 
     def run(self):
         with self._loopback.recorder(
-            samplerate=_sound_sample_rate, channels=1
+            samplerate=_SOUND_SAMPLE_RATE, channels=1
         ) as recorder:
             for i in itertools.count(self.offset):
                 if self.stopped():
@@ -190,7 +196,7 @@ class RecorderThread(threading.Thread):
                     return
 
                 data = recorder.record(
-                    numframes=_sound_sample_rate * _sound_sample_length
+                    numframes=_SOUND_SAMPLE_RATE * _sound_sample_length
                 )
 
                 self.to_transcribe_queue.put(
@@ -251,7 +257,7 @@ class TranscriberThread(threading.Thread):
 
             input_features = _transcriber_processor(
                 audio=data.flatten(),
-                sampling_rate=_sound_sample_rate,
+                sampling_rate=_SOUND_SAMPLE_RATE,
                 return_tensors="pt",
             ).input_features
 
@@ -462,7 +468,7 @@ class Notebook:
 
         docs = self._faiss.similarity_search(query, 2)
         texts = [doc.page_content for doc in docs]
-        texts = [_re_combine_whitespace.sub(" ", text).strip() for text in texts]
+        texts = [_RE_COMBINE_WHITESPACE.sub(" ", text).strip() for text in texts]
 
         logging.debug(f"Search tool results: {texts=}")
 
@@ -635,17 +641,35 @@ class Notebook:
 
     def get_live_source_id(self, origin: str) -> str:
         return next(
-            source["id"] for source in self.live_sources if source.origin == origin
+            source.id for source in self.live_sources if source.origin == origin
         )
 
     def add_ids_to_live_source(self, id: str, ids: List[str]):
         logging.debug(f"Adding ids to live source: {id=}, {ids=}")
 
         source = self.get_live_source(id)
-        source["ids"].extend(ids)
+        source.ids.extend(ids)
 
     def get_doc(self, id: str) -> Document:
         return self._faiss.docstore.search(id)
+
+    def get_content(self, id: str, live=False, last_k: Optional[int] = None) -> str:
+        if live:
+            source = self.get_live_source(id)
+        else:
+            source = self.get_source(id)
+        ids = sorted(
+            source.ids,
+            key=lambda doc_id: self.get_doc(doc_id).metadata["_index"],
+        )
+
+        if last_k is not None:
+            ids = ids[-last_k:]
+
+        docs = [self.get_doc(id) for id in ids]
+        texts = [doc.page_content for doc in docs]
+        texts = [_RE_COMBINE_WHITESPACE.sub(" ", text).strip() for text in texts]
+        return " ".join(texts)
 
     def summary(
         self,
@@ -660,7 +684,7 @@ class Notebook:
         else:
             source = self.get_source(id)
         ids = sorted(
-            source["ids"],
+            source.ids,
             key=lambda doc_id: self.get_doc(doc_id).metadata["_index"],
         )
 
@@ -669,7 +693,7 @@ class Notebook:
 
         groups = [ids[i : i + 3] for i in range(0, len(ids), 3)]
         texts = ["".join(self.get_doc(id).page_content for id in ids) for ids in groups]
-        texts = [_re_combine_whitespace.sub(" ", text).strip() for text in texts]
+        texts = [_RE_COMBINE_WHITESPACE.sub(" ", text).strip() for text in texts]
         prompts = [
             f'Summarize the following piece of text:\n\n"""{text}"""\n\nSummary:'
             for text in texts
@@ -737,7 +761,7 @@ class Notebook:
         texts = _splitter.split_text(content)
         texts = [texts[i : i + 3] for i in range(0, len(texts), 3)]
         texts = ["".join(text) for text in texts]
-        texts = [_re_combine_whitespace.sub(" ", text).strip() for text in texts]
+        texts = [_RE_COMBINE_WHITESPACE.sub(" ", text).strip() for text in texts]
         prompts = [
             f'Identify one possible idea you could write about to keep expanding this document: """{text}"""'
             for text in texts

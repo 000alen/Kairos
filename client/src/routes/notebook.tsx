@@ -6,10 +6,12 @@ import { Generation, INotebookContext, Job, Message, Source } from '../typings';
 import { Tiptap } from '../components/Tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit'
-import { FloatButton, Layout, Tooltip, Typography, notification } from 'antd';
+import { Button, FloatButton, Layout, Tooltip, Typography, notification } from 'antd';
 import { AudioOutlined, MessageOutlined, SaveOutlined } from '@ant-design/icons';
 import Placeholder from '@tiptap/extension-placeholder'
 import Collaboration from '@tiptap/extension-collaboration'
+import Popup from '../popup-menu'
+
 import * as Y from 'yjs'
 import Document from '@tiptap/extension-document'
 
@@ -33,6 +35,7 @@ export const Notebook = () => {
   const editor = useEditor({
     extensions: [
       Document,
+      Popup,
       StarterKit.configure({
         history: false
       }),
@@ -69,6 +72,13 @@ export const Notebook = () => {
 
   const insert = useCallback(async (text: string) => {
     editor!.chain().focus().insertContent(text).run();
+  }, [editor]);
+
+  const insertAt = useCallback(async (text: string, from: number, to: number) => {
+    editor!.chain()
+      .focus()
+      .insertContentAt({ from, to }, text)
+      .run();
   }, [editor]);
 
   const fetchName = useCallback(async () => {
@@ -127,13 +137,10 @@ export const Notebook = () => {
       placement: 'topRight',
     });
 
-    const selection = editor!.view.state.selection;
-    editor!.chain().focus().insertContentAt({
-      from: selection.from,
-      to: selection.to
-    }, output!).run();
+    // const { from, to } = editor!.view.state.selection;
+    // insertAt(output!, from, to);
     fetchGenerations();
-  }, [id, editor, api, fetchGenerations])
+  }, [id, editor, api, fetchGenerations, insertAt])
 
   const generate = useCallback(async (prompt: string) => {
     const { error, output } = await joinJob<string>(id!, await notebookGenerate(id!, editor!.getText(), prompt), () => { });
@@ -143,7 +150,7 @@ export const Notebook = () => {
       placement: 'topRight',
     });
 
-    insert(output!)
+    // insert(output!)
     fetchGenerations();
   }, [id, editor, api, fetchGenerations, insert])
 
@@ -155,13 +162,10 @@ export const Notebook = () => {
       placement: 'topRight',
     });
 
-    const selection = editor!.view.state.selection;
-    editor!.chain().focus().insertContentAt({
-      from: selection.from,
-      to: selection.to
-    }, output!).run();
+    const { from, to } = editor!.view.state.selection;
+    // insertAt(output!, from, to);
     fetchGenerations();
-  }, [id, editor, api, fetchGenerations])
+  }, [id, editor, api, fetchGenerations, insertAt])
 
   const chat = useCallback(async (prompt: string) => {
     const { error, output } = await joinJob<string>(id!, await notebookChat(id!, prompt), () => { });
@@ -184,7 +188,7 @@ export const Notebook = () => {
         placement: 'topRight',
       });
 
-    insert(output!.join("\n"));
+    // insert(output!.join("\n"));
     fetchGenerations();
   }, [id, editor, api, fetchGenerations, insert])
 
@@ -207,7 +211,7 @@ export const Notebook = () => {
       placement: 'topRight',
     });
 
-    insert(output!);
+    // insert(output!);
     fetchGenerations();
   }, [id, fetchGenerations, api, insert])
 
@@ -219,7 +223,7 @@ export const Notebook = () => {
       placement: 'topRight',
     });
 
-    insert(output!);
+    // insert(output!);
     fetchGenerations();
   }, [id, api, fetchGenerations, insert])
 
@@ -265,6 +269,7 @@ export const Notebook = () => {
     liveSourceSummary,
     save,
     insert,
+    insertAt,
   }), [
     id,
     name,
@@ -287,6 +292,7 @@ export const Notebook = () => {
     liveSourceSummary,
     save,
     insert,
+    insertAt,
   ])
 
   useEffect(() => { initialize() }, [initialize])

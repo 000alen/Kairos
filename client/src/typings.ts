@@ -69,4 +69,5 @@ export interface INotebookContext {
     liveSourceSummary: (sourceId: string) => Promise<void>;
     save: () => Promise<void>;
     insert: (text: string) => Promise<void>;
+    insertAt: (text: string, from: number, to: number) => Promise<void>;
 }

@@ -1,5 +1,5 @@
 import React, { useContext, useState } from 'react'
-import { Button, Card, Drawer, Space, Typography } from 'antd'
+import { Button, Card, Drawer, Space, Steps, Typography } from 'antd'
 import { NotebookContext } from '../../routes/notebook'
 
 const { Text } = Typography;
@@ -36,14 +36,21 @@ export const GenerationsDrawer: React.FC<GenerationsDrawerProps> = ({ open, setO
                 onClose={() => setIntermediateStepsDrawerOpen(false)}
                 open={intermediateStepsDrawerOpen}
             >
-                {generations && generations[selectedGeneration] && generations[selectedGeneration].intermediate_steps.map((step) => (<>
-                    <Text>{step.action.tool}</Text>
-                    <Text>{step.action.tool_input}</Text>
-                    <Text>{step.result}</Text>
-                </>))}
+                {
+                    generations && generations[selectedGeneration] && <Steps
+                        progressDot
+                        direction="vertical"
+                        size="small"
+                        current={generations[selectedGeneration].intermediate_steps.length - 1}
+                        status='finish'
+                        items={
+                            generations[selectedGeneration].intermediate_steps.map((step) => ({ title: step.action.tool, subTitle: step.action.tool_input, description: step.result }))
+
+                        }
+                    />
+
+                }
             </Drawer>
         </Drawer >
     )
-
-
 }
