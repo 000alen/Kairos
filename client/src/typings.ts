@@ -55,7 +55,10 @@ export interface INotebookContext {
     conversation: Message[];
     generations: Generation[];
     jobs: Job[];
-
+    popupShown: boolean;
+    setPopupShown: (shown: boolean) => void;
+    popupTitle: string | null;
+    popupDescription: string | null;
     rename: (name: string) => Promise<void>;
     startLiveSource: (origin: string) => Promise<void>;
     stopLiveSource: (origin: string) => Promise<void>;

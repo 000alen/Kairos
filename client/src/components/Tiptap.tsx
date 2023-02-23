@@ -130,22 +130,7 @@ export const Tiptap: React.FC<WithEditorProps> = ({ editor }) => {
 
             <BMenu editor={editor} />
 
-            <PopupMenu editor={editor}>
-                <Card
-                    style={{ width: 300 }}
-                    actions={[
-                        <SettingOutlined key="setting" />,
-                        <EditOutlined key="edit" />,
-                    ]}
-                >
-                    <Skeleton loading={true} active>
-                        <Card.Meta
-                            title="Card title"
-                            description="This is the description"
-                        />
-                    </Skeleton>
-                </Card>
-            </PopupMenu>
+            <PopupMenu editor={editor} />
 
             <EditorContent editor={editor} />
         </div>

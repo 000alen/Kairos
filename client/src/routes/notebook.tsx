@@ -6,15 +6,13 @@ import { Generation, INotebookContext, Job, Message, Source } from '../typings';
 import { Tiptap } from '../components/Tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit'
-import { Button, FloatButton, Layout, Tooltip, Typography, notification } from 'antd';
+import { FloatButton, Layout, Tooltip, Typography, notification } from 'antd';
 import { AudioOutlined, MessageOutlined, SaveOutlined } from '@ant-design/icons';
 import Placeholder from '@tiptap/extension-placeholder'
 import Collaboration from '@tiptap/extension-collaboration'
 import Popup from '../popup-menu'
-
-import * as Y from 'yjs'
 import Document from '@tiptap/extension-document'
-
+import * as Y from 'yjs'
 import { ChatDrawer } from '../components/drawers/ChatDrawer';
 import { SourcesDrawer } from '../components/drawers/SourcesDrawer';
 import { LiveSourcesDrawer } from '../components/drawers/LiveSourcesDrawer';
@@ -69,6 +67,10 @@ export const Notebook = () => {
   const [liveSourcesDrawerOpen, setLiveSourcesDrawerOpen] = useState(false);
   const [generationsDrawerOpen, setGenerationsDrawerOpen] = useState(false);
   const [jobsDrawerOpen, setJobsDrawerOpen] = useState(false);
+
+  const [popupShown, setPopupShown] = useState<boolean>(false);
+  const [popupTitle, setPopupTitle] = useState<string | null>(null);
+  const [popupDescription, setPopupDescription] = useState<string | null>(null);
 
   const insert = useCallback(async (text: string) => {
     editor!.chain().focus().insertContent(text).run();
@@ -128,6 +130,12 @@ export const Notebook = () => {
     fetchLiveSources();
   }, [id, fetchLiveSources])
 
+  const popup = useCallback(async (title: string, description: string) => {
+    setPopupTitle(title);
+    setPopupDescription(description);
+    editor!.commands.showPopupMenu();
+  }, [editor, setPopupTitle, setPopupDescription]);
+
   const run = useCallback(async (prompt: string) => {
     const { error, output } = await joinJob<string>(id!, await notebookRun(id!, editor!.getText(), prompt), () => {
     });
@@ -139,8 +147,10 @@ export const Notebook = () => {
 
     // const { from, to } = editor!.view.state.selection;
     // insertAt(output!, from, to);
+    popup(prompt, output!)
+
     fetchGenerations();
-  }, [id, editor, api, fetchGenerations, insertAt])
+  }, [id, editor, api, fetchGenerations, popup])
 
   const generate = useCallback(async (prompt: string) => {
     const { error, output } = await joinJob<string>(id!, await notebookGenerate(id!, editor!.getText(), prompt), () => { });
@@ -151,6 +161,8 @@ export const Notebook = () => {
     });
 
     // insert(output!)
+    popup(prompt, output!)
+
     fetchGenerations();
   }, [id, editor, api, fetchGenerations, insert])
 
@@ -162,8 +174,8 @@ export const Notebook = () => {
       placement: 'topRight',
     });
 
-    const { from, to } = editor!.view.state.selection;
-    // insertAt(output!, from, to);
+    popup(prompt, output!)
+
     fetchGenerations();
   }, [id, editor, api, fetchGenerations, insertAt])
 
@@ -189,6 +201,8 @@ export const Notebook = () => {
       });
 
     // insert(output!.join("\n"));
+    popup("Ideas", output!.join("\n"))
+
     fetchGenerations();
   }, [id, editor, api, fetchGenerations, insert])
 
@@ -212,6 +226,8 @@ export const Notebook = () => {
     });
 
     // insert(output!);
+    popup("Source Summary", output!)
+
     fetchGenerations();
   }, [id, fetchGenerations, api, insert])
 
@@ -224,6 +240,8 @@ export const Notebook = () => {
     });
 
     // insert(output!);
+    popup("Live Source Summary", output!)
+
     fetchGenerations();
   }, [id, api, fetchGenerations, insert])
 
@@ -231,7 +249,6 @@ export const Notebook = () => {
     const content = editor!.getJSON();
     await joinJob(id!, await saveNotebook(id!, content), () => { });
   }, [id, editor]);
-
 
   const initialize = useCallback(async () => {
     fetchName();
@@ -256,6 +273,9 @@ export const Notebook = () => {
     conversation,
     generations,
     jobs,
+    popupShown, setPopupShown,
+    popupTitle,
+    popupDescription,
     rename,
     startLiveSource,
     stopLiveSource,
@@ -279,6 +299,9 @@ export const Notebook = () => {
     conversation,
     generations,
     jobs,
+    popupShown, setPopupShown,
+    popupTitle,
+    popupDescription,
     rename,
     startLiveSource,
     stopLiveSource,
