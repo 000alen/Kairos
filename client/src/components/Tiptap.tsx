@@ -125,7 +125,7 @@ export const BMenu: React.FC<WithEditorProps> = ({ editor }) => {
 
 export const Tiptap: React.FC<WithEditorProps> = ({ editor }) => {
     return (
-        <div>
+        <div className='h-full mt-6'>
             <FMenu editor={editor} />
 
             <BMenu editor={editor} />

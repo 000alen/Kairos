@@ -18,9 +18,7 @@ const router = createHashRouter([
   },
 ]);
 
-export interface AppProps { }
-
-export const App: React.FC<AppProps> = () => {
+export const App = () => {
   return (
     <RouterProvider router={router} fallbackElement={<Error />} />
   );

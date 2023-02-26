@@ -453,6 +453,15 @@ def get_job(notebook_id, job_id):
     return jsonify(job)
 
 
+@app.route("/notebooks/<notebook_id>/pca")
+def get_pca(notebook_id):
+    with _notebooks_lock:
+        notebook = _notebooks[notebook_id]
+        pca = notebook.pca()
+
+    return jsonify(pca)
+
+
 @app.route("/events/<notebook_id>")
 def get_events(notebook_id):
     def _stream():

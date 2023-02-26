@@ -1,12 +1,12 @@
-import React, { createContext, useMemo } from 'react'
+import React, { createContext, useMemo, useRef } from 'react'
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { addSource as _addSource, getIdeas, getSourceSummary, joinJob, notebookEdit, notebookGenerate, notebookRun, saveNotebook, startLiveSource as _startLiveSource, stopLiveSource as _stopLiveSource, renameNotebook, notebookChat, getEvents, getName, getSources, getLiveSources, getConversation, getGenerations, getContent, getRunningLiveSources, getJobs } from '../api';
-import { Generation, INotebookContext, Job, Message, Source } from '../typings';
+import { addSource as _addSource, getIdeas, getSourceSummary, joinJob, notebookEdit, notebookGenerate, notebookRun, saveNotebook, startLiveSource as _startLiveSource, stopLiveSource as _stopLiveSource, renameNotebook, notebookChat, getEvents, getName, getSources, getLiveSources, getConversation, getGenerations, getContent, getRunningLiveSources, getJobs, getPCA } from '../api';
+import { Generation, INotebookContext, Job, Message, Source, XYT } from '../typings';
 import { Tiptap } from '../components/Tiptap';
 import { useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit'
-import { FloatButton, Layout, Tooltip, Typography, notification } from 'antd';
+import { Carousel, FloatButton, Layout, Tooltip, Typography, notification } from 'antd';
 import { AudioOutlined, MessageOutlined, SaveOutlined } from '@ant-design/icons';
 import Placeholder from '@tiptap/extension-placeholder'
 import Collaboration from '@tiptap/extension-collaboration'
@@ -18,6 +18,8 @@ import { SourcesDrawer } from '../components/drawers/SourcesDrawer';
 import { LiveSourcesDrawer } from '../components/drawers/LiveSourcesDrawer';
 import { GenerationsDrawer } from '../components/drawers/GenerationsDrawer';
 import { JobsDrawer } from '../components/drawers/JobsDrawer';
+import Dots from '../components/Dots';
+import ParentSize from '@visx/responsive/lib/components/ParentSize';
 
 const { Title } = Typography;
 const { Header, Content } = Layout;
@@ -61,6 +63,7 @@ export const Notebook = () => {
   const [conversation, setConversation] = useState<Message[]>([]);
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [pca, setPCA] = useState<XYT[]>([]);
 
   const [chatDrawerOpen, setChatDrawerOpen] = useState(false);
   const [sourcesDrawerOpen, setSourcesDrawerOpen] = useState(false);
@@ -114,6 +117,11 @@ export const Notebook = () => {
     setJobs(jobs);
   }, [setJobs, id]);
 
+  const fetchPCA = useCallback(async () => {
+    const pca = await getPCA(id!);
+    setPCA(pca);
+  }, [setPCA, id]);
+
   const rename = useCallback(async (name: string) => {
     await renameNotebook(id!, name);
     fetchName();
@@ -145,8 +153,6 @@ export const Notebook = () => {
       placement: 'topRight',
     });
 
-    // const { from, to } = editor!.view.state.selection;
-    // insertAt(output!, from, to);
     popup(prompt, output!)
 
     fetchGenerations();
@@ -257,12 +263,13 @@ export const Notebook = () => {
     fetchConversation();
     fetchGenerations();
     fetchJobs();
+    fetchPCA();
 
     const content = await getContent(id!);
     if (content) editor?.chain().setContent(content).run();
 
     setReady(true);
-  }, [id, setReady, editor, fetchName, fetchSources, fetchLiveSources, fetchConversation, fetchGenerations, fetchJobs])
+  }, [id, setReady, editor, fetchName, fetchSources, fetchLiveSources, fetchConversation, fetchGenerations, fetchJobs, fetchPCA])
 
   const context = useMemo(() => ({
     id: id!,
@@ -357,10 +364,19 @@ export const Notebook = () => {
               style={{
                 padding: 24,
                 margin: 0,
-                minHeight: 280,
                 overflow: 'auto',
               }}
             >
+              <Carousel>
+                <div className='h-[500px]'>
+                  <ParentSize>
+                    {({ width, height }) =>
+                      <Dots width={width} height={height} xyts={pca} />
+                    }
+                  </ParentSize>
+                </div>
+              </Carousel>
+
               <Tiptap editor={editor!} />
             </Content>
 

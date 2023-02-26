@@ -1,3 +1,5 @@
+export type XYT = [number, number, string];
+
 export interface Source {
     id: string
     type: string

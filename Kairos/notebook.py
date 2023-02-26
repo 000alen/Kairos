@@ -6,14 +6,15 @@ import queue
 import soundcard
 import logging
 import itertools
+import numpy
 
+from sklearn.manifold import TSNE
 from pathlib import Path
 from typing import Any, List, Optional, Dict, Any
 from dotenv import load_dotenv
 from names_generator import generate_name
 from tkinter import filedialog
 from pydantic import BaseModel
-
 from langchain import LLMMathChain
 from langchain.document_loaders import PagedPDFSplitter, WebBaseLoader, YoutubeLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -816,3 +817,33 @@ class Notebook:
         )
 
         return response
+
+    def pca(self):
+        docstore_id_to_index = {
+            docstore_id: index
+            for index, docstore_id in self._faiss.index_to_docstore_id.items()
+        }
+
+        embeddings = []
+        texts = []
+        for source in self.sources:
+            for id in source.ids:
+                embeddings.append(
+                    self._faiss.index.reconstruct(docstore_id_to_index[id])
+                )
+                texts.append(self.get_doc(id).page_content)
+
+        matrix = numpy.array(embeddings)
+
+        tsne = TSNE(
+            n_components=2,
+            perplexity=15,
+            random_state=42,
+            init="random",
+            learning_rate=200,
+        )
+
+        xy = tsne.fit_transform(matrix).tolist()
+        xyt = [[x, y, text] for (x, y), text in zip(xy, texts)]
+
+        return xyt

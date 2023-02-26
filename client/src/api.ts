@@ -443,3 +443,14 @@ export const getContent = async (notebookId: string) => {
 
     return content;
 }
+
+export const getPCA = async (notebookId: string) => {
+    const url = buildUrl(API_URL, {
+        path: `notebooks/${notebookId}/pca`,
+    });
+
+    const response = await fetch(url);
+    const pca = await response.json();
+
+    return pca;
+}
